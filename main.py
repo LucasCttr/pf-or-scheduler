@@ -7,7 +7,7 @@ Ejecutar:
 import json
 import random
 from mip import solve_mip_for_block
-from models import OperatingRoom, Specialty, Patient, GAConfig
+from models import OperatingRoom, Specialty, Patient, GAConfig, Staff
 from genetic_algorithm import GeneticAlgorithm
 
 
@@ -68,12 +68,39 @@ def main():
         4: make_patients(4, count=30, seed=4),   # Urología
         5: make_patients(5, count=30, seed=5),   # Ginecología
     }
+    
+    # ── Staff Médico (Cirujanos) ─────────────────────────────────────────────
+    staff_list = [
+    # --- TRAUMATOLOGÍA (ID: 1) ---
+    Staff(id=1, name="Dr. Pérez", role="cirujano", specialty_id=1,
+          availability_hours={0: (480, 660), 1: (780, 1020)}), # Lun Mañana, Mar Tarde
+    
+    Staff(id=2, name="Dra. Sosa", role="cirujano", specialty_id=1,
+          availability_hours={0: (600, 720), 2: (480, 720)}), # Lun (solapa con Pérez), Mié Mañana completo
+
+    # --- CIRUGÍA GENERAL (ID: 2) ---
+    Staff(id=3, name="Dr. Gomez", role="cirujano", specialty_id=2,
+          availability_hours={0: (480, 720), 1: (480, 720)}), # Lun y Mar Mañana
+    
+    Staff(id=4, name="Dra. Ruiz", role="cirujano", specialty_id=2,
+          availability_hours={1: (780, 1020), 3: (780, 1020)}), # Mar y Jue Tarde
+    
+    Staff(id=5, name="Dr. Martinez", role="cirujano", specialty_id=2,
+          availability_hours={2: (480, 600), 4: (480, 720)}), # Mié (solo 2hs), Vie Mañana
+
+    # --- OFTALMOLOGÍA (ID: 3) ---
+    Staff(id=6, name="Dra. Blanco", role="cirujano", specialty_id=3,
+          availability_hours={3: (480, 720), 4: (780, 1020)}), # Jue Mañana, Vie Tarde
+    
+    Staff(id=7, name="Dr. Lopez", role="cirujano", specialty_id=3,
+          availability_hours={0: (780, 1020), 2: (780, 1020)}), # Lun y Mié Tarde
+    ]
 
     # ── Configuración del AG ──────────────────────────────────────────────
     config = GAConfig(
         population_size=50,
         max_generations=250,
-        convergence_patience=40,
+        convergence_patience=12,
         mutation_rate=0.10,
         crossover_rate=0.85,
         tournament_size=5,
@@ -91,6 +118,7 @@ def main():
         operating_rooms=operating_rooms,
         specialties=specialties,
         patients_by_specialty=patients_by_specialty,
+        staff_list=staff_list
     )
 
     print("=" * 70)
@@ -111,13 +139,12 @@ def main():
     print("\n  Agenda lista para ser enviada a revisión de cirujanos.\n")
 
 
-    # ── POST-PROCESAMIENTO: Generación de JSON Detallado ──────────────────
-    print("\n▶ Generando reporte detallado para el backend...")
-    
-    # IMPORTANTE: Usamos un set para repetir la lógica de 'no duplicados'
-    # que el AG usó internamente.
-    pacientes_asignados_semana = set()
+    # ── RECONSTRUCCIÓN DE LA AGENDA TOTAL ──────────────────
+    all_patients_lookup = {p.id: p for lista in patients_by_specialty.values() for p in lista}
 
+    print("\n▶ Generando reporte de grilla completa...")
+    
+    pacientes_asignados_semana = set()
     agenda_final = {
         "hospital": "Hospital Centenario",
         "fitness_total": round(best.fitness, 4),
@@ -127,36 +154,89 @@ def main():
     for d in range(config.n_days):
         dia_dict = {"nombre": GeneticAlgorithm.DAY_NAMES[d], "bloques": []}
         for t in range(config.n_shifts):
+            is_morning = (t == 0)
+            
+            # Capacidad del turno
+            staff_capacity_remanente = {
+                s.id: s.get_available_minutes_in_block(d, is_morning)
+                for s in staff_list if s.role == "cirujano"
+            }
+            
             for q in range(len(operating_rooms)):
                 spec_id = int(best.chromosome[d, t, q])
+                spec_name = next(s.name for s in specialties if s.id == spec_id)
                 
+                # Inicializamos variables por defecto por si falla algo
+                detalles = {"pacientes_ids": [], "asignaciones": [], "t_max_real": config.block_duration_min // 2}
+                cronograma = []
+                utilizacion = 0.0
+                t_uso = 0
+
+                # Intentamos llenar el bloque SOLO si no es "Libre"
                 if spec_id > 0:
-                    # Filtramos los que aún no fueron "operados" en este loop de reconstrucción
-                    candidatos = [p for p in patients_by_specialty[spec_id] 
+                    surgeons_in_block = [
+                        s for s in staff_list 
+                        if s.role == "cirujano" and s.specialty_id == spec_id
+                        and staff_capacity_remanente.get(s.id, 0) > 0
+                    ]
+
+                    candidatos = [p for p in patients_by_specialty.get(spec_id, []) 
                                  if p.id not in pacientes_asignados_semana]
 
-                    # Llamamos al MIP con return_details=True
-                    detalles = solve_mip_for_block(
-                        specialty_id=spec_id,
-                        patients=candidatos,
-                        block_duration_min=config.block_duration_min,
-                        return_details=True
-                    )
-                    
-                    # Marcamos como asignados
-                    pacientes_asignados_semana.update(detalles["pacientes_ids"])
-                    
-                    spec_name = next(s.name for s in specialties if s.id == spec_id)
-                    
-                    bloque = {
-                        "quirofano": operating_rooms[q].name,
-                        "turno": GeneticAlgorithm.SHIFT_NAMES[t],
-                        "especialidad": spec_name,
-                        "pacientes_ids": detalles["pacientes_ids"],
-                        "utilizacion": detalles["utilizacion_porcentaje"],
-                        "tiempo_uso": detalles["uso_tiempo"]
-                    }
-                    dia_dict["bloques"].append(bloque)
+                    # Solo llamamos al MIP si hay chances de éxito
+                    if surgeons_in_block and candidatos:
+                        detalles = solve_mip_for_block(
+                            specialty_id=spec_id,
+                            patients=candidatos,
+                            surgeons=surgeons_in_block,
+                            day_idx=d,
+                            is_morning=is_morning,
+                            alpha=config.alpha,
+                            beta=config.beta,
+                            custom_capacities=staff_capacity_remanente,
+                            return_details=True
+                        )
+                        
+                        # Actualizar datos reales si el MIP devolvió algo
+                        pacientes_asignados_semana.update(detalles["pacientes_ids"])
+                        consumo = detalles.get("consumo_medicos", {})
+                        for s_id, minutos in consumo.items():
+                            staff_capacity_remanente[s_id] -= minutos
+
+                        # Generar cronograma
+                        asig_por_doc = {}
+                        for asig in detalles.get("asignaciones", []):
+                            doc_name = asig["doc"]
+                            if doc_name not in asig_por_doc: asig_por_doc[doc_name] = []
+                            asig_por_doc[doc_name].append(asig["p"])
+
+                        for doc_name, p_ids in asig_por_doc.items():
+                            medico = next(s for s in staff_list if s.name == doc_name)
+                            curr_min, _ = medico.get_range_for_block(d, is_morning)
+                            for p_id in p_ids:
+                                p_obj = all_patients_lookup[p_id]
+                                cronograma.append({
+                                    "paciente_id": p_id,
+                                    "medico": doc_name,
+                                    "hora_inicio": f"{curr_min // 60:02d}:{curr_min % 60:02d}",
+                                    "hora_fin": f"{(curr_min + p_obj.estimated_duration) // 60:02d}:{(curr_min + p_obj.estimated_duration) % 60:02d}",
+                                    "duracion": p_obj.estimated_duration
+                                })
+                                curr_min += p_obj.estimated_duration
+
+                        t_reloj = detalles.get("t_max_real", 1) # Evitar división por cero
+                        t_uso = sum(all_patients_lookup[pid].estimated_duration for pid in detalles["pacientes_ids"])
+                        utilizacion = round((t_uso / t_reloj * 100), 2)
+
+                # Agregamos el bloque SIEMPRE
+                dia_dict["bloques"].append({
+                    "quirofano": operating_rooms[q].name,
+                    "turno": GeneticAlgorithm.SHIFT_NAMES[t],
+                    "especialidad": spec_name,
+                    "utilizacion_porcentaje": utilizacion,
+                    "pacientes_contados": len(detalles["pacientes_ids"]),
+                    "cronograma": cronograma
+                })
         
         agenda_final["dias"].append(dia_dict)
 

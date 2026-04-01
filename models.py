@@ -40,13 +40,37 @@ class Patient:
     required_roles: List[str] = field(default_factory=list)  # ["cirujano", "anestesista", ...]   FALTA IMPLEMENTAR
 
 
+from dataclasses import dataclass
+from typing import List, Dict, Tuple
+
 @dataclass
 class Staff:
     id: int
     name: str
     role: str  # "cirujano", "anestesista", etc.
-    specialty_id: int # Para los cirujanos
-    availability: List[List[bool]] # No todos están todos los días
+    specialty_id: int
+    # Disponibilidad: {día_idx: (inicio_minutos, fin_minutos)}
+    # Ejemplo: {0: (480, 720)} es Lunes de 08:00 a 12:00
+    availability_hours: Dict[int, Tuple[int, int]]
+
+    def get_range_for_block(self, day_idx: int, is_morning: bool) -> Tuple[int, int]:
+        """Calcula el solapamiento entre el turno del médico y el bloque del quirófano."""
+        if day_idx not in self.availability_hours:
+            return (0, 0)
+        
+        # Bloques estándar: 08:00-12:00 (480-720) y 13:00-17:00 (780-1020)
+        b_start, b_end = (480, 720) if is_morning else (780, 1020)
+        s_start, s_end = self.availability_hours[day_idx]
+        
+        # Intersección de rangos
+        overlap_start = max(b_start, s_start)
+        overlap_end = min(b_end, s_end)
+        
+        return (overlap_start, overlap_end) if overlap_start < overlap_end else (0, 0)
+
+    def get_available_minutes_in_block(self, day_idx: int, is_morning: bool) -> int:
+        start, end = self.get_range_for_block(day_idx, is_morning)
+        return end - start
 
 
 @dataclass
@@ -59,7 +83,10 @@ class GAConfig:
     crossover_rate: float = 0.85
     tournament_size: int = 5
     elite_count: int = 2
-
+    
+    alpha: float = 0.7  # Peso para la prioridad clínica
+    beta: float = 0.3   # Peso para la utilización de tiempo
+    
     n_days: int = 5       # Lunes a Viernes
     n_shifts: int = 2     # 0 = Mañana, 1 = Tarde
     block_duration_min: int = 480   # minutos disponibles por bloque (8 hs)

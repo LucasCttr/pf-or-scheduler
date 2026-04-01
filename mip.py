@@ -1,75 +1,84 @@
-"""
-mip.py — modelo MIP (Nivel 3).
-
-Devuelve el valor de fitness Z y la selección óptima de pacientes para cada bloque quirúrgico.
-
-Estructura del MIP real:
-    Max Z = sum(alpha * w_i * x_i) + beta * (sum(d_i * x_i) / T_max)
-    s.t.   sum(d_i * x_i) <= T_max
-           x_i in {0, 1}
-
-Donde:
-    w_i  = prioridad clínica del paciente i
-    d_i  = duración estimada de la cirugía i (minutos)
-    x_i  = 1 si el paciente i es seleccionado, 0 si no
-    T_max = tiempo total disponible en el bloque (minutos)
-"""
-from typing import List
-from models import Patient
-
-
-from typing import List
 from pulp import LpProblem, LpVariable, lpSum, LpMaximize, value, PULP_CBC_CMD
-from models import Patient
 
 def solve_mip_for_block(
     specialty_id: int,
-    patients: List[Patient],
-    block_duration_min: int,
+    patients: list,
+    surgeons: list,
+    day_idx: int,
+    is_morning: bool,
     alpha: float = 0.7,
     beta: float = 0.3,
-    return_details: bool = False  
+    custom_capacities: dict = None, # <--- Recibimos las capacidades remanentes
+    return_details: bool = False
 ):
-    """
-    Resuelve el problema de optimización exacto para un bloque quirúrgico.
-    Retorna (fitness, ids_seleccionados) por defecto, o un dict detallado si return_details=True.
-    """
-    # 1. Validaciones iniciales (Bloque libre o sin pacientes disponibles)
-    if specialty_id == 0 or not patients:
-        res_empty = {"fitness": 0.0, "pacientes_ids": [], "uso_tiempo": 0, "utilizacion_porcentaje": 0}
-        return res_empty if return_details else (0.0, [])
+    if not patients or not surgeons:
+        return (0.0, [], {}) if not return_details else {"fitness": 0.0, "pacientes_ids": [], "asignaciones": []}
 
-    # 2. Definición del Problema
-    prob = LpProblem(f"MIP_Spec_{specialty_id}", LpMaximize)
+    # 1. Definir capacidades individuales reales (las que quedan del turno)
+    # Si no viene custom_capacities (ej. primera llamada), usamos el total del médico
+    capacidades_actuales = {}
+    for s in surgeons:
+        if custom_capacities and s.id in custom_capacities:
+            capacidades_actuales[s.id] = custom_capacities[s.id]
+        else:
+            capacidades_actuales[s.id] = s.get_available_minutes_in_block(day_idx, is_morning)
 
-    # 3. Variables de Decisión
-    x = {p.id: LpVariable(f"x_{p.id}", cat="Binary") for p in patients}
+    # 2. Capacidad Reloj (Unión de rangos de los cirujanos con tiempo disponible)
+    minutos_reloj = set()
+    for s in surgeons:
+        if capacidades_actuales[s.id] > 0:
+            start, end = s.get_range_for_block(day_idx, is_morning)
+            for m in range(start, end):
+                minutos_reloj.add(m)
+    
+    t_max_quirofano = len(minutos_reloj)
+    if t_max_quirofano == 0:
+        return (0.0, [], {}) if not return_details else {"fitness": 0.0, "pacientes_ids": []}
 
-    # 4. Función Objetivo
-    term_priority = lpSum(p.clinical_priority * x[p.id] for p in patients)
-    term_utilization = lpSum(p.estimated_duration * x[p.id] for p in patients) / block_duration_min
-    prob += (alpha * term_priority) + (beta * term_utilization)
+    # 3. Problema y Variables
+    prob = LpProblem(f"MIP_Block_{day_idx}_{is_morning}", LpMaximize)
+    x = {p.id: {s.id: LpVariable(f"x_p{p.id}_s{s.id}", cat="Binary") for s in surgeons} for p in patients}
 
-    # 5. Restricción de Capacidad
-    prob += lpSum(p.estimated_duration * x[p.id] for p in patients) <= block_duration_min
+    # 4. Objetivo
+    prioridad = lpSum(p.clinical_priority * x[p.id][s.id] for p in patients for s in surgeons)
+    utilizacion = lpSum(p.estimated_duration * x[p.id][s.id] for p in patients for s in surgeons) / t_max_quirofano
+    prob += (alpha * prioridad) + (beta * utilizacion)
 
-    # 6. Ejecutar Solver (Silencioso)
+    # 5. Restricciones
+    for p in patients:
+        prob += lpSum(x[p.id][s.id] for s in surgeons) <= 1
+
+    for s in surgeons:
+        # Aquí usamos la capacidad REMANENTE que nos pasó el AG
+        prob += lpSum(p.estimated_duration * x[p.id][s.id] for p in patients) <= capacidades_actuales[s.id]
+
+    prob += lpSum(p.estimated_duration * x[p.id][s.id] for p in patients for s in surgeons) <= t_max_quirofano
+
+    # 6. Resolver
     prob.solve(PULP_CBC_CMD(msg=0))
 
-    # 7. Extraer Resultados
-    z_final = value(prob.objective) or 0.0
-    # Usamos 0.5 para evitar errores de precisión de coma flotante del solver
-    ids_seleccionados = [p.id for p in patients if value(x[p.id]) > 0.5]
+    # 7. Calcular tiempo consumido por cada médico en ESTE quirófano
+    # Esto es lo que el AG usará para restar del turno
+    consumo_medicos = {}
+    for s in surgeons:
+        minutos_usados = sum(p.estimated_duration * value(x[p.id][s.id]) for p in patients)
+        consumo_medicos[s.id] = minutos_usados
 
-    # 8. Retorno condicional
+    ids_elegidos = [p.id for p in patients if any(value(x[p.id][s.id]) > 0.5 for s in surgeons)]
+    z_final = value(prob.objective) or 0.0
+
     if return_details:
-        tiempo_total = sum(p.estimated_duration for p in patients if p.id in ids_seleccionados)
+        # Calculamos el uso real en minutos
+        uso_tiempo_minutos = sum(p.estimated_duration for p in patients if any(value(x[p.id][s.id]) > 0.5 for s in surgeons))
         return {
             "fitness": z_final,
-            "pacientes_ids": ids_seleccionados,
-            "uso_tiempo": tiempo_total,
-            "utilizacion_porcentaje": round((tiempo_total / block_duration_min) * 100, 2)
+            "pacientes_ids": ids_elegidos,
+            "consumo_medicos": consumo_medicos,
+            "t_max_real": t_max_quirofano,
+            "uso_tiempo": uso_tiempo_minutos, # <--- Nuevo
+            "utilizacion_porcentaje": round((uso_tiempo_minutos / t_max_quirofano) * 100, 2) if t_max_quirofano > 0 else 0, # <--- Nuevo
+            "asignaciones": [{"p": p.id, "doc": s.name} for p in patients for s in surgeons if value(x[p.id][s.id]) > 0.5]
         }
     
-    # Retorno optimizado para el bucle del AG
-    return z_final, ids_seleccionados
+    # Retornamos los 3 valores que espera el AG
+    return z_final, ids_elegidos, consumo_medicos

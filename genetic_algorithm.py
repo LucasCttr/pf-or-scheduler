@@ -13,7 +13,7 @@ from typing import List, Tuple, Dict, Optional
 
 import numpy as np
 
-from models import OperatingRoom, Specialty, Patient, GAConfig
+from models import OperatingRoom, Specialty, Patient, GAConfig, Staff
 from mip import solve_mip_for_block
 
 
@@ -22,8 +22,6 @@ from mip import solve_mip_for_block
 # ---------------------------------------------------------------------------
 
 class Individual:
-    """Una agenda semanal completa: un individuo de la población."""
-
     def __init__(self, chromosome: np.ndarray):
         self.chromosome: np.ndarray = chromosome.copy()
         self.fitness: float = -np.inf
@@ -42,15 +40,6 @@ class Individual:
 # ---------------------------------------------------------------------------
 
 class GeneticAlgorithm:
-    """
-    Algoritmo Genético para la planificación semanal de quirófanos.
-
-    Uso básico:
-        ga = GeneticAlgorithm(config, operating_rooms, specialties, patients_by_specialty)
-        best = ga.run()
-        ga.print_schedule(best)
-    """
-
     DAY_NAMES   = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
     SHIFT_NAMES = ["Mañana", "Tarde"]
 
@@ -60,93 +49,68 @@ class GeneticAlgorithm:
         operating_rooms: List[OperatingRoom],
         specialties: List[Specialty],
         patients_by_specialty: Dict[int, List[Patient]],
+        staff_list: List[Staff] # Lista de cirujanos con sus horarios
     ):
         self.cfg = config
         self.ors = operating_rooms
         self.specialties = specialties
         self.patients_by_specialty = patients_by_specialty
+        self.staff_list = staff_list 
 
         self.n_ors    = len(operating_rooms)
         self.n_days   = config.n_days
         self.n_shifts = config.n_shifts
 
-        # Índices rápidos
         self._spec_by_id: Dict[int, Specialty]    = {s.id: s for s in specialties}
         self._or_by_idx:  Dict[int, OperatingRoom] = dict(enumerate(operating_rooms))
-
-        # IDs de especialidades reales (excluye id=0 = libre)
         self._real_spec_ids: List[int] = [s.id for s in specialties if s.id != 0]
 
-        # Estado del algoritmo
         self.best_individual: Optional[Individual] = None
-        self.history: List[float] = []  # mejor fitness por generación
+        self.history: List[float] = []
 
     # ═══════════════════════════════════════════════════════════════════════
     # 1. INICIALIZACIÓN
     # ═══════════════════════════════════════════════════════════════════════
 
     def _valid_specialties_for(self, or_idx: int, day: int, shift: int) -> List[int]:
-        """
-        Retorna la lista de specialty_ids compatibles con un bloque dado.
-        Tiene en cuenta el tipo de quirófano y su disponibilidad horaria.
-        """
+        """Retorna especialidades compatibles con el quirófano Y con médicos disponibles."""
         or_ = self._or_by_idx[or_idx]
         if not or_.availability[day][shift]:
             return []
-        return [
-            s.id for s in self.specialties
-            if s.id != 0 and or_.or_type in s.compatible_or_types
-        ]
+
+        is_morning = (shift == 0)
+        valid_options = []
+        
+        for s in self.specialties:
+            if s.id == 0: continue
+            
+            # Chequeo de Quirófano
+            if or_.or_type in s.compatible_or_types:
+                # Chequeo de Staff: ¿Hay al menos un cirujano de esta especialidad en este bloque?
+                has_staff = any(
+                    staff.specialty_id == s.id and 
+                    staff.get_available_minutes_in_block(day, is_morning) > 0
+                    for staff in self.staff_list if staff.role == "cirujano"
+                )
+                if has_staff:
+                    valid_options.append(s.id)
+        
+        return valid_options
+
+    def _create_individual(self) -> Individual:
+        # (Lógica similar a la anterior, pero usando el nuevo _valid_specialties_for)
+        chrom = np.zeros((self.n_days, self.n_shifts, self.n_ors), dtype=int)
+        for d in range(self.n_days):
+            for t in range(self.n_shifts):
+                for q in range(self.n_ors):
+                    chrom[d, t, q] = self._random_specialty_for(q, d, t)
+        return Individual(chrom)
 
     def _random_specialty_for(self, or_idx: int, day: int, shift: int) -> int:
-        """
-        Elige aleatoriamente una especialidad válida para el bloque.
-        Con un 15 % de probabilidad deja el bloque libre (id=0).
-        """
         options = self._valid_specialties_for(or_idx, day, shift)
         if not options or random.random() < 0.15:
             return 0
         return random.choice(options)
-
-    def _create_individual(self) -> Individual:
-        """
-        Crea un individuo con inicialización semi-inteligente:
-        1. Cubre las cuotas mínimas de cada especialidad.
-        2. Rellena los bloques sobrantes de forma aleatoria válida.
-        """
-        chrom = np.zeros((self.n_days, self.n_shifts, self.n_ors), dtype=int)
-        counts: Dict[int, int] = {sid: 0 for sid in self._real_spec_ids}
-
-        # Paso 1 — cubrir cuotas mínimas
-        for spec_id in self._real_spec_ids:
-            spec = self._spec_by_id[spec_id]
-            needed  = spec.min_blocks
-            filled  = 0
-            attempts = 0
-
-            while filled < needed and attempts < 300:
-                d = random.randrange(self.n_days)
-                t = random.randrange(self.n_shifts)
-                q = random.randrange(self.n_ors)
-                or_ = self._or_by_idx[q]
-
-                if (chrom[d, t, q] == 0
-                        and or_.availability[d][t]
-                        and or_.or_type in spec.compatible_or_types):
-                    chrom[d, t, q] = spec_id
-                    counts[spec_id] += 1
-                    filled += 1
-
-                attempts += 1
-
-        # Paso 2 — rellenar bloques vacíos
-        for d in range(self.n_days):
-            for t in range(self.n_shifts):
-                for q in range(self.n_ors):
-                    if chrom[d, t, q] == 0:
-                        chrom[d, t, q] = self._random_specialty_for(q, d, t)
-
-        return Individual(chrom)
 
     def initialize_population(self) -> List[Individual]:
         """Crea la población inicial completa."""
@@ -176,47 +140,64 @@ class GeneticAlgorithm:
         return penalty
 
     def evaluate_fitness(self, individual: Individual) -> float:
-        """
-        Fitness Global con Memoria de Pacientes.
-        
-        IMPORTANTE: Se recorre cronológicamente para que los pacientes 
-        seleccionados en bloques previos sean descartados para los futuros.
-        """
         chrom = individual.chromosome
         total_z = 0.0
-        
-        # 1. Registro de pacientes ya operados para ESTE individuo
         pacientes_operados = set()
 
-        # 2. Recorrido CRONOLÓGICO (Día -> Turno -> Quirófano)
         for d in range(self.n_days):
             for t in range(self.n_shifts):
+                is_morning = (t == 0)
+                
+                # --- 1. BOLSA DE TIEMPO DEL TURNO ---
+                # Usamos self.staff_list que ya tenés en el __init__
+                staff_capacity = {
+                    s.id: s.get_available_minutes_in_block(d, is_morning)
+                    for s in self.staff_list if s.role == "cirujano"
+                }
+
                 for q in range(self.n_ors):
                     spec_id = int(chrom[d, t, q])
-                    if spec_id == 0:
+                    if spec_id == 0: 
                         continue
 
-                    # 3. Filtrar la lista de espera: solo pacientes NO operados aún
+                    # 2. Filtrar cirujanos con tiempo remanente (Nivel 2)
+                    surgeons_available = [
+                        s for s in self.staff_list 
+                        if s.role == "cirujano" and s.specialty_id == spec_id
+                        and staff_capacity.get(s.id, 0) > 0
+                    ]
+
+                    if not surgeons_available: 
+                        continue
+
+                    # 3. Filtrar pacientes pendientes
                     all_patients = self.patients_by_specialty.get(spec_id, [])
                     candidatos = [p for p in all_patients if p.id not in pacientes_operados]
 
-                    # 4. Si no quedan pacientes, el bloque no suma fitness
-                    if not candidatos:
+                    if not candidatos: 
                         continue
 
-                    # 5. Llamada al MIP (Nivel 3)
-                    # Ahora solve_mip_for_block debe retornar (z, ids_elegidos)
-                    z, ids_elegidos = solve_mip_for_block(
+                    # 4. LLAMADA AL MIP (Nivel 3)
+                    # USAMOS self.cfg (que es como lo definiste en el constructor)
+                    z, ids_elegidos, tiempo_usado = solve_mip_for_block(
                         specialty_id=spec_id,
                         patients=candidatos,
-                        block_duration_min=self.cfg.block_duration_min,
+                        surgeons=surgeons_available,
+                        day_idx=d,
+                        is_morning=is_morning,
+                        alpha=self.cfg.alpha,
+                        beta=self.cfg.beta,
+                        custom_capacities=staff_capacity
                     )
+
+                    # 5. ACTUALIZAR CONSUMO REAL
+                    for s_id, minutos in tiempo_usado.items():
+                        staff_capacity[s_id] -= minutos
                     
                     total_z += z
-                    # 6. "Tachar" pacientes para el resto de la semana de este individuo
                     pacientes_operados.update(ids_elegidos)
 
-        # 7. Restar penalizaciones de cuotas
+        # 6. PENALIZACIONES Y RESULTADO FINAL
         fitness = total_z - self._global_penalty(chrom)
         individual.fitness = fitness
         return fitness
