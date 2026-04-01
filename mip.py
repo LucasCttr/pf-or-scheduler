@@ -1,7 +1,7 @@
 """
 mip.py — modelo MIP (Nivel 3).
 
-Devuelve un valor de fitness Z simulado para cada bloque quirúrgico.
+Devuelve el valor de fitness Z y la selección óptima de pacientes para cada bloque quirúrgico.
 
 Estructura del MIP real:
     Max Z = sum(alpha * w_i * x_i) + beta * (sum(d_i * x_i) / T_max)
