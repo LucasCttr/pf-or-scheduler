@@ -165,13 +165,11 @@ class GeneticAlgorithm:
         counts  = self._count_blocks_per_specialty(chrom)
 
         for spec in self.specialties:
-            if spec.id == 0:
-                continue
+            if spec.id == 0: continue
             assigned = counts.get(spec.id, 0)
 
             if assigned < spec.min_blocks:
                 penalty += self.cfg.penalty_below_min_quota * (spec.min_blocks - assigned)
-
             if assigned > spec.max_blocks:
                 penalty += self.cfg.penalty_above_max_quota * (assigned - spec.max_blocks)
 
@@ -179,14 +177,18 @@ class GeneticAlgorithm:
 
     def evaluate_fitness(self, individual: Individual) -> float:
         """
-        Fitness Global = Σ Z_bloque(d,t,q)  −  Penalizaciones_globales
-
-        Para cada bloque con especialidad asignada llama al MIP (Nivel 3)
-        con los pacientes de esa especialidad como entrada.
+        Fitness Global con Memoria de Pacientes.
+        
+        IMPORTANTE: Se recorre cronológicamente para que los pacientes 
+        seleccionados en bloques previos sean descartados para los futuros.
         """
-        chrom   = individual.chromosome
+        chrom = individual.chromosome
         total_z = 0.0
+        
+        # 1. Registro de pacientes ya operados para ESTE individuo
+        pacientes_operados = set()
 
+        # 2. Recorrido CRONOLÓGICO (Día -> Turno -> Quirófano)
         for d in range(self.n_days):
             for t in range(self.n_shifts):
                 for q in range(self.n_ors):
@@ -194,15 +196,27 @@ class GeneticAlgorithm:
                     if spec_id == 0:
                         continue
 
-                    patients = self.patients_by_specialty.get(spec_id, [])
+                    # 3. Filtrar la lista de espera: solo pacientes NO operados aún
+                    all_patients = self.patients_by_specialty.get(spec_id, [])
+                    candidatos = [p for p in all_patients if p.id not in pacientes_operados]
 
-                    z = solve_mip_for_block(
+                    # 4. Si no quedan pacientes, el bloque no suma fitness
+                    if not candidatos:
+                        continue
+
+                    # 5. Llamada al MIP (Nivel 3)
+                    # Ahora solve_mip_for_block debe retornar (z, ids_elegidos)
+                    z, ids_elegidos = solve_mip_for_block(
                         specialty_id=spec_id,
-                        patients=patients,
+                        patients=candidatos,
                         block_duration_min=self.cfg.block_duration_min,
                     )
+                    
                     total_z += z
+                    # 6. "Tachar" pacientes para el resto de la semana de este individuo
+                    pacientes_operados.update(ids_elegidos)
 
+        # 7. Restar penalizaciones de cuotas
         fitness = total_z - self._global_penalty(chrom)
         individual.fitness = fitness
         return fitness

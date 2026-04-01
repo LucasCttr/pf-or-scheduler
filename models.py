@@ -66,4 +66,4 @@ class GAConfig:
 
     # Penalizaciones en el fitness global
     penalty_below_min_quota: float = 50.0   # por cada bloque faltante bajo el mínimo
-    penalty_above_max_quota: float = 20.0   # por cada bloque excedente sobre el máximo
+    penalty_above_max_quota: float = 30.0   # por cada bloque excedente sobre el máximo

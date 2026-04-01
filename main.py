@@ -60,13 +60,13 @@ def main():
         Specialty(id=5, name="Ginecología",      compatible_or_types=["media_complejidad", "baja_complejidad"],                    min_blocks=2, max_blocks=5),
     ]
 
-    # ── Pacientes en lista de espera ──────────────────────────────────────
+    # ── Pacientes en lista de espera (Aumentados para cubrir la semana) ────
     patients_by_specialty = {
-        1: make_patients(1, count=8,  seed=1),   # Traumatología
-        2: make_patients(2, count=14, seed=2),   # Cirugía General
-        3: make_patients(3, count=5,  seed=3),   # Neurología
-        4: make_patients(4, count=7,  seed=4),   # Urología
-        5: make_patients(5, count=6,  seed=5),   # Ginecología
+        1: make_patients(1, count=35, seed=1),   # Traumatología
+        2: make_patients(2, count=50, seed=2),   # Cirugía General
+        3: make_patients(3, count=25, seed=3),   # Neurología
+        4: make_patients(4, count=30, seed=4),   # Urología
+        5: make_patients(5, count=30, seed=5),   # Ginecología
     }
 
     # ── Configuración del AG ──────────────────────────────────────────────
@@ -112,40 +112,45 @@ def main():
 
 
     # ── POST-PROCESAMIENTO: Generación de JSON Detallado ──────────────────
-    # Reconstruimos la agenda mejor valorada por el AG para saber qué pacientes van
     print("\n▶ Generando reporte detallado para el backend...")
     
+    # IMPORTANTE: Usamos un set para repetir la lógica de 'no duplicados'
+    # que el AG usó internamente.
+    pacientes_asignados_semana = set()
+
     agenda_final = {
         "hospital": "Hospital Centenario",
         "fitness_total": round(best.fitness, 4),
         "dias": []
     }
 
-    dias_nombres = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
-    turnos_nombres = ["Mañana", "Tarde"]
-
     for d in range(config.n_days):
-        dia_dict = {"nombre": dias_nombres[d], "bloques": []}
+        dia_dict = {"nombre": GeneticAlgorithm.DAY_NAMES[d], "bloques": []}
         for t in range(config.n_shifts):
             for q in range(len(operating_rooms)):
                 spec_id = int(best.chromosome[d, t, q])
                 
                 if spec_id > 0:
-                    # Llamamos al MIP en modo DETALLES (return_details=True)
-                    # Usamos los pacientes de la lista de espera real
+                    # Filtramos los que aún no fueron "operados" en este loop de reconstrucción
+                    candidatos = [p for p in patients_by_specialty[spec_id] 
+                                 if p.id not in pacientes_asignados_semana]
+
+                    # Llamamos al MIP con return_details=True
                     detalles = solve_mip_for_block(
                         specialty_id=spec_id,
-                        patients=patients_by_specialty[spec_id],
+                        patients=candidatos,
                         block_duration_min=config.block_duration_min,
                         return_details=True
                     )
                     
-                    # Buscamos el nombre de la especialidad
+                    # Marcamos como asignados
+                    pacientes_asignados_semana.update(detalles["pacientes_ids"])
+                    
                     spec_name = next(s.name for s in specialties if s.id == spec_id)
                     
                     bloque = {
                         "quirofano": operating_rooms[q].name,
-                        "turno": turnos_nombres[t],
+                        "turno": GeneticAlgorithm.SHIFT_NAMES[t],
                         "especialidad": spec_name,
                         "pacientes_ids": detalles["pacientes_ids"],
                         "utilizacion": detalles["utilizacion_porcentaje"],
@@ -155,14 +160,10 @@ def main():
         
         agenda_final["dias"].append(dia_dict)
 
-    # Exportamos el archivo
     with open("agenda_resultado.json", "w", encoding="utf-8") as f:
         json.dump(agenda_final, f, indent=4, ensure_ascii=False)
 
-    print("✔ Agenda detallada guardada en 'agenda_resultado.json'")
-
-    print(f"\n  Fitness final del mejor individuo: {best.fitness:.4f}")
-    print("\n  Agenda lista para ser enviada a revisión de cirujanos.\n")
+    print(f"✔ Agenda guardada. Total pacientes programados: {len(pacientes_asignados_semana)}")
 
 
 if __name__ == "__main__":
