@@ -45,13 +45,16 @@ def solve_mip_for_block(
     prob += (alpha * prioridad) + (beta * utilizacion)
 
     # 5. Restricciones
+    # Cada paciente se asigna a lo sumo a un cirujano
     for p in patients:
         prob += lpSum(x[p.id][s.id] for s in surgeons) <= 1
 
+    # Cada cirujano no puede exceder su capacidad REMANENTE
     for s in surgeons:
         # Aquí usamos la capacidad REMANENTE que nos pasó el AG
         prob += lpSum(p.estimated_duration * x[p.id][s.id] for p in patients) <= capacidades_actuales[s.id]
 
+    # El total de tiempo asignado no puede exceder el tiempo del quirófano (reloj)
     prob += lpSum(p.estimated_duration * x[p.id][s.id] for p in patients for s in surgeons) <= t_max_quirofano
 
     # 6. Resolver

@@ -89,7 +89,7 @@ class GAConfig:
     
     n_days: int = 5       # Lunes a Viernes
     n_shifts: int = 2     # 0 = Mañana, 1 = Tarde
-    block_duration_min: int = 480   # minutos disponibles por bloque (8 hs)
+    block_duration_min: int = 240   # minutos disponibles por bloque 
 
     # Penalizaciones en el fitness global
     penalty_below_min_quota: float = 50.0   # por cada bloque faltante bajo el mínimo

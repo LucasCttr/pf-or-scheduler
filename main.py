@@ -12,19 +12,22 @@ from genetic_algorithm import GeneticAlgorithm
 
 
 def make_patients(specialty_id: int, count: int, seed: int = 0) -> list:
-    """Genera una lista de pacientes de prueba para una especialidad."""
+    """Genera una lista de pacientes de prueba con duraciones estandarizadas."""
     rng = random.Random(seed)
+    # Lista de duraciones permitidas en minutos
+    duraciones_permitidas = [30, 45, 60, 90, 120]
+    
     return [
         Patient(
             id=specialty_id * 100 + i,
             specialty_id=specialty_id,
-            estimated_duration=rng.randint(45, 240),      # entre 45 min y 4 hs
+            # Selecciona aleatoriamente de la lista de duraciones estandarizadas
+            estimated_duration=rng.choice(duraciones_permitidas),
             clinical_priority=round(rng.uniform(1.0, 10.0), 2),
             required_roles=["cirujano", "anestesista", "instrumentador"],
         )
         for i in range(count)
     ]
-
 
 def main():
     random.seed(42)
@@ -76,7 +79,7 @@ def main():
           availability_hours={0: (480, 660), 1: (780, 1020)}), # Lun Mañana, Mar Tarde
     
     Staff(id=2, name="Dra. Sosa", role="cirujano", specialty_id=1,
-          availability_hours={0: (600, 720), 2: (480, 720)}), # Lun (solapa con Pérez), Mié Mañana completo
+          availability_hours={0: (600, 1220), 2: (480, 720)}), # Lun (solapa con Pérez), Mié Mañana completo
 
     # --- CIRUGÍA GENERAL (ID: 2) ---
     Staff(id=3, name="Dr. Gomez", role="cirujano", specialty_id=2,
@@ -88,9 +91,9 @@ def main():
     Staff(id=5, name="Dr. Martinez", role="cirujano", specialty_id=2,
           availability_hours={2: (480, 600), 4: (480, 720)}), # Mié (solo 2hs), Vie Mañana
 
-    # --- OFTALMOLOGÍA (ID: 3) ---
+    # --- NEUROLOGÍA (ID: 3) ---
     Staff(id=6, name="Dra. Blanco", role="cirujano", specialty_id=3,
-          availability_hours={3: (480, 720), 4: (780, 1020)}), # Jue Mañana, Vie Tarde
+          availability_hours={3: (480, 720), 4: (780, 1020),}), # Jue Mañana, Vie Tarde y se agrego martes (donde habia un bloque vacio para verificar que el AG lo use)
     
     Staff(id=7, name="Dr. Lopez", role="cirujano", specialty_id=3,
           availability_hours={0: (780, 1020), 2: (780, 1020)}), # Lun y Mié Tarde
@@ -107,7 +110,7 @@ def main():
         elite_count=2, 
         n_days=5,
         n_shifts=2,                       # mañana y tarde
-        block_duration_min=480,           # 8 horas por bloque
+        block_duration_min=240,           # 8 horas por bloque
         penalty_below_min_quota=50.0,
         penalty_above_max_quota=20.0,
     )
@@ -169,7 +172,7 @@ def main():
                 # Inicializamos variables por defecto por si falla algo
                 detalles = {"pacientes_ids": [], "asignaciones": [], "t_max_real": config.block_duration_min // 2}
                 cronograma = []
-                utilizacion = 0.0
+                utilizacion_quirofano = 0.0
                 t_uso = 0
 
                 # Intentamos llenar el bloque SOLO si no es "Libre"
@@ -224,16 +227,18 @@ def main():
                                 })
                                 curr_min += p_obj.estimated_duration
 
-                        t_reloj = detalles.get("t_max_real", 1) # Evitar división por cero
+                        t_bloque_teorico = config.block_duration_min 
                         t_uso = sum(all_patients_lookup[pid].estimated_duration for pid in detalles["pacientes_ids"])
-                        utilizacion = round((t_uso / t_reloj * 100), 2)
+                        
+                        # El porcentaje ahora refleja el uso del ESPACIO FÍSICO
+                        utilizacion_quirofano = round((t_uso / t_bloque_teorico * 100), 2)
 
                 # Agregamos el bloque SIEMPRE
                 dia_dict["bloques"].append({
                     "quirofano": operating_rooms[q].name,
                     "turno": GeneticAlgorithm.SHIFT_NAMES[t],
                     "especialidad": spec_name,
-                    "utilizacion_porcentaje": utilizacion,
+                    "utilizacion_porcentaje": utilizacion_quirofano,
                     "pacientes_contados": len(detalles["pacientes_ids"]),
                     "cronograma": cronograma
                 })
