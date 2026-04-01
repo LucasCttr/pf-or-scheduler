@@ -97,6 +97,13 @@ def main():
     
     Staff(id=7, name="Dr. Lopez", role="cirujano", specialty_id=3,
           availability_hours={0: (780, 1020), 2: (780, 1020)}), # Lun y Mié Tarde
+    
+    # --- GINECOLOGÍA (ID: 5) ---
+    Staff(id=8, name="Dra. García", role="cirujano", specialty_id=5,
+          availability_hours={1: (480, 720), 3: (480, 720)}), # Mar y Jue Mañana
+    
+    Staff(id=9, name="Dr. Rodríguez", role="cirujano", specialty_id=5,
+          availability_hours={2: (780, 1020), 4: (780, 1020)}), # Mié y Vie Tarde
     ]
 
     # ── Configuración del AG ──────────────────────────────────────────────

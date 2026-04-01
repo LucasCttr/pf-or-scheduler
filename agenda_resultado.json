@@ -1,63 +1,12 @@
 {
     "hospital": "Hospital Centenario",
-    "fitness_total": 281.976,
+    "fitness_total": 366.3848,
     "dias": [
         {
             "nombre": "Lunes",
             "bloques": [
                 {
                     "quirofano": "Quirófano 1 (Alta)",
-                    "turno": "Mañana",
-                    "especialidad": "Cirugía General",
-                    "utilizacion_porcentaje": 100.0,
-                    "pacientes_contados": 6,
-                    "cronograma": [
-                        {
-                            "paciente_id": 209,
-                            "medico": "Dr. Gomez",
-                            "hora_inicio": "08:00",
-                            "hora_fin": "08:30",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 219,
-                            "medico": "Dr. Gomez",
-                            "hora_inicio": "08:30",
-                            "hora_fin": "09:15",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 235,
-                            "medico": "Dr. Gomez",
-                            "hora_inicio": "09:15",
-                            "hora_fin": "10:00",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 245,
-                            "medico": "Dr. Gomez",
-                            "hora_inicio": "10:00",
-                            "hora_fin": "10:45",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 248,
-                            "medico": "Dr. Gomez",
-                            "hora_inicio": "10:45",
-                            "hora_fin": "11:30",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 249,
-                            "medico": "Dr. Gomez",
-                            "hora_inicio": "11:30",
-                            "hora_fin": "12:00",
-                            "duracion": 30
-                        }
-                    ]
-                },
-                {
-                    "quirofano": "Quirófano 2 (Media)",
                     "turno": "Mañana",
                     "especialidad": "Traumatología",
                     "utilizacion_porcentaje": 100.0,
@@ -115,12 +64,71 @@
                     ]
                 },
                 {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Traumatología",
+                    "utilizacion_porcentaje": 25.0,
+                    "pacientes_contados": 1,
+                    "cronograma": [
+                        {
+                            "paciente_id": 124,
+                            "medico": "Dr. Pérez",
+                            "hora_inicio": "08:00",
+                            "hora_fin": "09:00",
+                            "duracion": 60
+                        }
+                    ]
+                },
+                {
                     "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
-                    "especialidad": "Urología",
-                    "utilizacion_porcentaje": 0.0,
-                    "pacientes_contados": 0,
-                    "cronograma": []
+                    "especialidad": "Cirugía General",
+                    "utilizacion_porcentaje": 100.0,
+                    "pacientes_contados": 6,
+                    "cronograma": [
+                        {
+                            "paciente_id": 209,
+                            "medico": "Dr. Gomez",
+                            "hora_inicio": "08:00",
+                            "hora_fin": "08:30",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 219,
+                            "medico": "Dr. Gomez",
+                            "hora_inicio": "08:30",
+                            "hora_fin": "09:15",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 235,
+                            "medico": "Dr. Gomez",
+                            "hora_inicio": "09:15",
+                            "hora_fin": "10:00",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 245,
+                            "medico": "Dr. Gomez",
+                            "hora_inicio": "10:00",
+                            "hora_fin": "10:45",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 248,
+                            "medico": "Dr. Gomez",
+                            "hora_inicio": "10:45",
+                            "hora_fin": "11:30",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 249,
+                            "medico": "Dr. Gomez",
+                            "hora_inicio": "11:30",
+                            "hora_fin": "12:00",
+                            "duracion": 30
+                        }
+                    ]
                 },
                 {
                     "quirofano": "Quirófano 1 (Alta)",
@@ -178,7 +186,7 @@
                     "turno": "Tarde",
                     "especialidad": "Traumatología",
                     "utilizacion_porcentaje": 100.0,
-                    "pacientes_contados": 5,
+                    "pacientes_contados": 4,
                     "cronograma": [
                         {
                             "paciente_id": 100,
@@ -188,25 +196,18 @@
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 101,
-                            "medico": "Dra. Sosa",
-                            "hora_inicio": "13:45",
-                            "hora_fin": "14:15",
-                            "duracion": 30
-                        },
-                        {
                             "paciente_id": 108,
                             "medico": "Dra. Sosa",
-                            "hora_inicio": "14:15",
-                            "hora_fin": "15:15",
+                            "hora_inicio": "13:45",
+                            "hora_fin": "14:45",
                             "duracion": 60
                         },
                         {
-                            "paciente_id": 124,
+                            "paciente_id": 119,
                             "medico": "Dra. Sosa",
-                            "hora_inicio": "15:15",
+                            "hora_inicio": "14:45",
                             "hora_fin": "16:15",
-                            "duracion": 60
+                            "duracion": 90
                         },
                         {
                             "paciente_id": 133,
@@ -270,7 +271,7 @@
                 {
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Mañana",
-                    "especialidad": "Libre",
+                    "especialidad": "Cirugía General",
                     "utilizacion_porcentaje": 0.0,
                     "pacientes_contados": 0,
                     "cronograma": []
@@ -279,9 +280,45 @@
                     "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
                     "especialidad": "Ginecología",
-                    "utilizacion_porcentaje": 0.0,
-                    "pacientes_contados": 0,
-                    "cronograma": []
+                    "utilizacion_porcentaje": 100.0,
+                    "pacientes_contados": 5,
+                    "cronograma": [
+                        {
+                            "paciente_id": 510,
+                            "medico": "Dra. García",
+                            "hora_inicio": "08:00",
+                            "hora_fin": "08:45",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 516,
+                            "medico": "Dra. García",
+                            "hora_inicio": "08:45",
+                            "hora_fin": "09:30",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 517,
+                            "medico": "Dra. García",
+                            "hora_inicio": "09:30",
+                            "hora_fin": "10:15",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 521,
+                            "medico": "Dra. García",
+                            "hora_inicio": "10:15",
+                            "hora_fin": "11:00",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 529,
+                            "medico": "Dra. García",
+                            "hora_inicio": "11:00",
+                            "hora_fin": "12:00",
+                            "duracion": 60
+                        }
+                    ]
                 },
                 {
                     "quirofano": "Quirófano 1 (Alta)",
@@ -335,7 +372,7 @@
                     "pacientes_contados": 4,
                     "cronograma": [
                         {
-                            "paciente_id": 111,
+                            "paciente_id": 101,
                             "medico": "Dr. Pérez",
                             "hora_inicio": "13:00",
                             "hora_fin": "13:30",
@@ -349,18 +386,18 @@
                             "duracion": 90
                         },
                         {
-                            "paciente_id": 119,
-                            "medico": "Dr. Pérez",
-                            "hora_inicio": "15:00",
-                            "hora_fin": "16:30",
-                            "duracion": 90
-                        },
-                        {
                             "paciente_id": 122,
                             "medico": "Dr. Pérez",
-                            "hora_inicio": "16:30",
-                            "hora_fin": "17:00",
+                            "hora_inicio": "15:00",
+                            "hora_fin": "15:30",
                             "duracion": 30
+                        },
+                        {
+                            "paciente_id": 129,
+                            "medico": "Dr. Pérez",
+                            "hora_inicio": "15:30",
+                            "hora_fin": "17:00",
+                            "duracion": 90
                         }
                     ]
                 },
@@ -379,6 +416,37 @@
             "bloques": [
                 {
                     "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Mañana",
+                    "especialidad": "Libre",
+                    "utilizacion_porcentaje": 0.0,
+                    "pacientes_contados": 0,
+                    "cronograma": []
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Traumatología",
+                    "utilizacion_porcentaje": 100.0,
+                    "pacientes_contados": 2,
+                    "cronograma": [
+                        {
+                            "paciente_id": 125,
+                            "medico": "Dra. Sosa",
+                            "hora_inicio": "08:00",
+                            "hora_fin": "10:00",
+                            "duracion": 120
+                        },
+                        {
+                            "paciente_id": 128,
+                            "medico": "Dra. Sosa",
+                            "hora_inicio": "10:00",
+                            "hora_fin": "12:00",
+                            "duracion": 120
+                        }
+                    ]
+                },
+                {
+                    "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
                     "especialidad": "Cirugía General",
                     "utilizacion_porcentaje": 43.75,
@@ -399,44 +467,6 @@
                             "duracion": 45
                         }
                     ]
-                },
-                {
-                    "quirofano": "Quirófano 2 (Media)",
-                    "turno": "Mañana",
-                    "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 93.75,
-                    "pacientes_contados": 3,
-                    "cronograma": [
-                        {
-                            "paciente_id": 102,
-                            "medico": "Dra. Sosa",
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:30",
-                            "duracion": 90
-                        },
-                        {
-                            "paciente_id": 127,
-                            "medico": "Dra. Sosa",
-                            "hora_inicio": "09:30",
-                            "hora_fin": "10:15",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 129,
-                            "medico": "Dra. Sosa",
-                            "hora_inicio": "10:15",
-                            "hora_fin": "11:45",
-                            "duracion": 90
-                        }
-                    ]
-                },
-                {
-                    "quirofano": "Quirófano 3 (Baja)",
-                    "turno": "Mañana",
-                    "especialidad": "Urología",
-                    "utilizacion_porcentaje": 0.0,
-                    "pacientes_contados": 0,
-                    "cronograma": []
                 },
                 {
                     "quirofano": "Quirófano 1 (Alta)",
@@ -471,10 +501,39 @@
                 {
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Tarde",
-                    "especialidad": "Libre",
-                    "utilizacion_porcentaje": 0.0,
-                    "pacientes_contados": 0,
-                    "cronograma": []
+                    "especialidad": "Ginecología",
+                    "utilizacion_porcentaje": 100.0,
+                    "pacientes_contados": 4,
+                    "cronograma": [
+                        {
+                            "paciente_id": 501,
+                            "medico": "Dr. Rodríguez",
+                            "hora_inicio": "13:00",
+                            "hora_fin": "14:00",
+                            "duracion": 60
+                        },
+                        {
+                            "paciente_id": 504,
+                            "medico": "Dr. Rodríguez",
+                            "hora_inicio": "14:00",
+                            "hora_fin": "14:45",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 506,
+                            "medico": "Dr. Rodríguez",
+                            "hora_inicio": "14:45",
+                            "hora_fin": "16:15",
+                            "duracion": 90
+                        },
+                        {
+                            "paciente_id": 519,
+                            "medico": "Dr. Rodríguez",
+                            "hora_inicio": "16:15",
+                            "hora_fin": "17:00",
+                            "duracion": 45
+                        }
+                    ]
                 },
                 {
                     "quirofano": "Quirófano 3 (Baja)",
@@ -529,7 +588,7 @@
                 {
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Mañana",
-                    "especialidad": "Libre",
+                    "especialidad": "Urología",
                     "utilizacion_porcentaje": 0.0,
                     "pacientes_contados": 0,
                     "cronograma": []
@@ -537,21 +596,49 @@
                 {
                     "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
-                    "especialidad": "Urología",
-                    "utilizacion_porcentaje": 0.0,
-                    "pacientes_contados": 0,
-                    "cronograma": []
+                    "especialidad": "Ginecología",
+                    "utilizacion_porcentaje": 100.0,
+                    "pacientes_contados": 5,
+                    "cronograma": [
+                        {
+                            "paciente_id": 503,
+                            "medico": "Dra. García",
+                            "hora_inicio": "08:00",
+                            "hora_fin": "09:30",
+                            "duracion": 90
+                        },
+                        {
+                            "paciente_id": 509,
+                            "medico": "Dra. García",
+                            "hora_inicio": "09:30",
+                            "hora_fin": "10:15",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 512,
+                            "medico": "Dra. García",
+                            "hora_inicio": "10:15",
+                            "hora_fin": "10:45",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 515,
+                            "medico": "Dra. García",
+                            "hora_inicio": "10:45",
+                            "hora_fin": "11:15",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 524,
+                            "medico": "Dra. García",
+                            "hora_inicio": "11:15",
+                            "hora_fin": "12:00",
+                            "duracion": 45
+                        }
+                    ]
                 },
                 {
                     "quirofano": "Quirófano 1 (Alta)",
-                    "turno": "Tarde",
-                    "especialidad": "Libre",
-                    "utilizacion_porcentaje": 0.0,
-                    "pacientes_contados": 0,
-                    "cronograma": []
-                },
-                {
-                    "quirofano": "Quirófano 2 (Media)",
                     "turno": "Tarde",
                     "especialidad": "Cirugía General",
                     "utilizacion_porcentaje": 100.0,
@@ -579,6 +666,14 @@
                             "duracion": 90
                         }
                     ]
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Tarde",
+                    "especialidad": "Traumatología",
+                    "utilizacion_porcentaje": 0.0,
+                    "pacientes_contados": 0,
+                    "cronograma": []
                 },
                 {
                     "quirofano": "Quirófano 3 (Baja)",
@@ -626,7 +721,7 @@
                 {
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Mañana",
-                    "especialidad": "Cirugía General",
+                    "especialidad": "Ginecología",
                     "utilizacion_porcentaje": 0.0,
                     "pacientes_contados": 0,
                     "cronograma": []
@@ -634,7 +729,7 @@
                 {
                     "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
-                    "especialidad": "Cirugía General",
+                    "especialidad": "Urología",
                     "utilizacion_porcentaje": 0.0,
                     "pacientes_contados": 0,
                     "cronograma": []
@@ -673,9 +768,31 @@
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Tarde",
                     "especialidad": "Ginecología",
-                    "utilizacion_porcentaje": 0.0,
-                    "pacientes_contados": 0,
-                    "cronograma": []
+                    "utilizacion_porcentaje": 100.0,
+                    "pacientes_contados": 3,
+                    "cronograma": [
+                        {
+                            "paciente_id": 518,
+                            "medico": "Dr. Rodríguez",
+                            "hora_inicio": "13:00",
+                            "hora_fin": "14:00",
+                            "duracion": 60
+                        },
+                        {
+                            "paciente_id": 523,
+                            "medico": "Dr. Rodríguez",
+                            "hora_inicio": "14:00",
+                            "hora_fin": "15:00",
+                            "duracion": 60
+                        },
+                        {
+                            "paciente_id": 527,
+                            "medico": "Dr. Rodríguez",
+                            "hora_inicio": "15:00",
+                            "hora_fin": "17:00",
+                            "duracion": 120
+                        }
+                    ]
                 },
                 {
                     "quirofano": "Quirófano 3 (Baja)",
