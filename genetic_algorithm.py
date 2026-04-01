@@ -14,7 +14,7 @@ from typing import List, Tuple, Dict, Optional
 import numpy as np
 
 from models import OperatingRoom, Specialty, Patient, GAConfig
-from mip_stub import solve_mip_for_block
+from mip import solve_mip_for_block
 
 
 # ---------------------------------------------------------------------------

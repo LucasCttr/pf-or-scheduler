@@ -75,9 +75,9 @@ def main():
         mutation_rate=0.10,
         crossover_rate=0.85,
         tournament_size=5,
-        elite_count=2,
+        elite_count=2, 
         n_days=5,
-        n_shifts=2,
+        n_shifts=2,                       # mañana y tarde
         block_duration_min=480,           # 8 horas por bloque
         penalty_below_min_quota=50.0,
         penalty_above_max_quota=20.0,
