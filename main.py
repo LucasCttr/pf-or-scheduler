@@ -1,8 +1,5 @@
 """
-main.py — Ejemplo de uso del AG con datos similares al Hospital Centenario.
-
-Ejecutar:
-    python main.py
+main.py — Ejemplo de uso del AG.
 """
 import json
 import random
@@ -17,17 +14,31 @@ def make_patients(specialty_id: int, count: int, seed: int = 0) -> list:
     # Lista de duraciones permitidas en minutos
     duraciones_permitidas = [30, 45, 60, 90, 120]
     
-    return [
-        Patient(
+    patients = []
+    
+    # --- INYECCIÓN DE CASO CRÍTICO (Para verificar) ---
+    if specialty_id == 1:
+        urgencia = Patient(
+            id=2000,
+            specialty_id=1,
+            estimated_duration=215, # 3.55 hs
+            clinical_priority=99.0, # Urgencia máxima
+            required_roles=["cirujano", "anestesista", "instrumentador"],
+        )
+        patients.append(urgencia)
+        
+    # El resto de los pacientes se generan aleatoriamente con duraciones estandarizadas
+    for i in range(count):
+        p = Patient(
             id=specialty_id * 100 + i,
             specialty_id=specialty_id,
-            # Selecciona aleatoriamente de la lista de duraciones estandarizadas
             estimated_duration=rng.choice(duraciones_permitidas),
             clinical_priority=round(rng.uniform(1.0, 10.0), 2),
             required_roles=["cirujano", "anestesista", "instrumentador"],
         )
-        for i in range(count)
-    ]
+        patients.append(p)
+        
+    return patients
 
 def main():
     random.seed(42)
@@ -117,7 +128,7 @@ def main():
         elite_count=2, 
         n_days=5,
         n_shifts=2,                       # mañana y tarde
-        block_duration_min=240,           # 8 horas por bloque
+        block_duration_min=240,           # 4 horas por bloque
         penalty_below_min_quota=50.0,
         penalty_above_max_quota=20.0,
     )
@@ -240,7 +251,7 @@ def main():
                         # El porcentaje ahora refleja el uso del ESPACIO FÍSICO
                         utilizacion_quirofano = round((t_uso / t_bloque_teorico * 100), 2)
 
-                # Agregamos el bloque SIEMPRE
+                # Agregamos el bloque
                 dia_dict["bloques"].append({
                     "quirofano": operating_rooms[q].name,
                     "turno": GeneticAlgorithm.SHIFT_NAMES[t],

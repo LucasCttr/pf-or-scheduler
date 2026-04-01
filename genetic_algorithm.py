@@ -178,7 +178,7 @@ class GeneticAlgorithm:
                         continue
 
                     # 4. LLAMADA AL MIP (Nivel 3)
-                    # USAMOS self.cfg (que es como lo definiste en el constructor)
+                    # USAMOS self.cfg
                     z, ids_elegidos, tiempo_usado = solve_mip_for_block(
                         specialty_id=spec_id,
                         patients=candidatos,

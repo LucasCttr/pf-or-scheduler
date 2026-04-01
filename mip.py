@@ -8,14 +8,14 @@ def solve_mip_for_block(
     is_morning: bool,
     alpha: float = 0.7,
     beta: float = 0.3,
-    custom_capacities: dict = None, # <--- Recibimos las capacidades remanentes
+    custom_capacities: dict = None,
     return_details: bool = False
 ):
     if not patients or not surgeons:
         return (0.0, [], {}) if not return_details else {"fitness": 0.0, "pacientes_ids": [], "asignaciones": []}
 
     # 1. Definir capacidades individuales reales (las que quedan del turno)
-    # Si no viene custom_capacities (ej. primera llamada), usamos el total del médico
+    # Si no viene custom_capacities (ej. primera llamada), usamos el total del médico 
     capacidades_actuales = {}
     for s in surgeons:
         if custom_capacities and s.id in custom_capacities:
