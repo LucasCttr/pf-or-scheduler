@@ -4,7 +4,9 @@ main.py — Ejemplo de uso del AG con datos similares al Hospital Centenario.
 Ejecutar:
     python main.py
 """
+import json
 import random
+from mip import solve_mip_for_block
 from models import OperatingRoom, Specialty, Patient, GAConfig
 from genetic_algorithm import GeneticAlgorithm
 
@@ -104,6 +106,60 @@ def main():
     for i, f in enumerate(ga.history):
         if i % 10 == 0:
             print(f"    Gen {i:4d}: {f:.4f}")
+
+    print(f"\n  Fitness final del mejor individuo: {best.fitness:.4f}")
+    print("\n  Agenda lista para ser enviada a revisión de cirujanos.\n")
+
+
+    # ── POST-PROCESAMIENTO: Generación de JSON Detallado ──────────────────
+    # Reconstruimos la agenda mejor valorada por el AG para saber qué pacientes van
+    print("\n▶ Generando reporte detallado para el backend...")
+    
+    agenda_final = {
+        "hospital": "Hospital Centenario",
+        "fitness_total": round(best.fitness, 4),
+        "dias": []
+    }
+
+    dias_nombres = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+    turnos_nombres = ["Mañana", "Tarde"]
+
+    for d in range(config.n_days):
+        dia_dict = {"nombre": dias_nombres[d], "bloques": []}
+        for t in range(config.n_shifts):
+            for q in range(len(operating_rooms)):
+                spec_id = int(best.chromosome[d, t, q])
+                
+                if spec_id > 0:
+                    # Llamamos al MIP en modo DETALLES (return_details=True)
+                    # Usamos los pacientes de la lista de espera real
+                    detalles = solve_mip_for_block(
+                        specialty_id=spec_id,
+                        patients=patients_by_specialty[spec_id],
+                        block_duration_min=config.block_duration_min,
+                        return_details=True
+                    )
+                    
+                    # Buscamos el nombre de la especialidad
+                    spec_name = next(s.name for s in specialties if s.id == spec_id)
+                    
+                    bloque = {
+                        "quirofano": operating_rooms[q].name,
+                        "turno": turnos_nombres[t],
+                        "especialidad": spec_name,
+                        "pacientes_ids": detalles["pacientes_ids"],
+                        "utilizacion": detalles["utilizacion_porcentaje"],
+                        "tiempo_uso": detalles["uso_tiempo"]
+                    }
+                    dia_dict["bloques"].append(bloque)
+        
+        agenda_final["dias"].append(dia_dict)
+
+    # Exportamos el archivo
+    with open("agenda_resultado.json", "w", encoding="utf-8") as f:
+        json.dump(agenda_final, f, indent=4, ensure_ascii=False)
+
+    print("✔ Agenda detallada guardada en 'agenda_resultado.json'")
 
     print(f"\n  Fitness final del mejor individuo: {best.fitness:.4f}")
     print("\n  Agenda lista para ser enviada a revisión de cirujanos.\n")

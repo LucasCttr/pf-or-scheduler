@@ -28,20 +28,20 @@ def solve_mip_for_block(
     block_duration_min: int,
     alpha: float = 0.7,
     beta: float = 0.3,
-) -> float:
+    return_details: bool = False  # Si True, retorna un dict con detalles adicionales además del fitness (se usa al final del AG para mostrar pacientes seleccionados y uso de tiempo)
+):
     """
     Resuelve el problema de optimización exacto para un bloque quirúrgico.
     """
     # 1. Validaciones iniciales
     if specialty_id == 0 or not patients:
-        return 0.0
+        return {"fitness": 0.0, "pacientes_ids": [], "uso_tiempo": 0} if return_details else 0.0
 
-    # 2. Definir el Problema
-    # Queremos maximizar la función objetivo (LpMaximize)
+    # 2. Definición del Problema
     prob = LpProblem(f"Block_Optimization_Spec_{specialty_id}", LpMaximize)
 
     # 3. Variables de Decisión
-    # x_i es 1 si el paciente i es seleccionado, 0 si no (Binary)
+    # x[p.id] es 1 si el paciente i es seleccionado, 0 si no
     x = {p.id: LpVariable(f"x_{p.id}", cat="Binary") for p in patients}
 
     # 4. Función Objetivo
@@ -52,13 +52,27 @@ def solve_mip_for_block(
     prob += (alpha * term_priority) + (beta * term_utilization)
 
     # 5. Restricción de Capacidad
-    # La suma de las duraciones no puede exceder el tiempo del bloque
     prob += lpSum(p.estimated_duration * x[p.id] for p in patients) <= block_duration_min
 
-    # 6. Ejecutar el Solver
-    # msg=0 desactiva los logs de la consola para no saturar el algoritmo genético
+    # 6. Ejecutar el Solver (silencioso)
     prob.solve(PULP_CBC_CMD(msg=0))
 
-    # 7. Retornar el valor óptimo de Z
-    # Si el solver no encuentra solución, value() devuelve None, por eso el "or 0.0"
-    return value(prob.objective) or 0.0
+    # 7. Obtener el Fitness
+    z_final = value(prob.objective) or 0.0
+
+    # 8. Retorno condicional
+    if return_details:
+        # Filtramos los pacientes cuyo valor en el solver sea 1 (o muy cercano a 1 por precisión de coma flotante)
+        pacientes_seleccionados = [p.id for p in patients if value(x[p.id]) > 0.5]
+        
+        # Calculamos el tiempo total de los seleccionados
+        tiempo_total = sum(p.estimated_duration for p in patients if value(x[p.id]) > 0.5)
+
+        return {
+            "fitness": z_final,
+            "pacientes_ids": pacientes_seleccionados,
+            "uso_tiempo": tiempo_total,
+            "utilizacion_porcentaje": round((tiempo_total / block_duration_min) * 100, 2)
+        }
+    
+    return z_final

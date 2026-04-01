@@ -1,0 +1,359 @@
+{
+    "hospital": "Hospital Centenario",
+    "fitness_total": 488.9448,
+    "dias": [
+        {
+            "nombre": "Lunes",
+            "bloques": [
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Mañana",
+                    "especialidad": "Traumatología",
+                    "pacientes_ids": [
+                        100,
+                        102,
+                        104,
+                        105
+                    ],
+                    "utilizacion": 76.04,
+                    "tiempo_uso": 365
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Cirugía General",
+                    "pacientes_ids": [
+                        200,
+                        201,
+                        204,
+                        211,
+                        213
+                    ],
+                    "utilizacion": 98.96,
+                    "tiempo_uso": 475
+                },
+                {
+                    "quirofano": "Quirófano 3 (Baja)",
+                    "turno": "Mañana",
+                    "especialidad": "Cirugía General",
+                    "pacientes_ids": [
+                        200,
+                        201,
+                        204,
+                        211,
+                        213
+                    ],
+                    "utilizacion": 98.96,
+                    "tiempo_uso": 475
+                },
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Tarde",
+                    "especialidad": "Cirugía General",
+                    "pacientes_ids": [
+                        200,
+                        201,
+                        204,
+                        211,
+                        213
+                    ],
+                    "utilizacion": 98.96,
+                    "tiempo_uso": 475
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Tarde",
+                    "especialidad": "Cirugía General",
+                    "pacientes_ids": [
+                        200,
+                        201,
+                        204,
+                        211,
+                        213
+                    ],
+                    "utilizacion": 98.96,
+                    "tiempo_uso": 475
+                }
+            ]
+        },
+        {
+            "nombre": "Martes",
+            "bloques": [
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Mañana",
+                    "especialidad": "Cirugía General",
+                    "pacientes_ids": [
+                        200,
+                        201,
+                        204,
+                        211,
+                        213
+                    ],
+                    "utilizacion": 98.96,
+                    "tiempo_uso": 475
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Ginecología",
+                    "pacientes_ids": [
+                        501,
+                        504,
+                        505
+                    ],
+                    "utilizacion": 85.0,
+                    "tiempo_uso": 408
+                },
+                {
+                    "quirofano": "Quirófano 3 (Baja)",
+                    "turno": "Mañana",
+                    "especialidad": "Ginecología",
+                    "pacientes_ids": [
+                        501,
+                        504,
+                        505
+                    ],
+                    "utilizacion": 85.0,
+                    "tiempo_uso": 408
+                },
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Tarde",
+                    "especialidad": "Neurología",
+                    "pacientes_ids": [
+                        300,
+                        301,
+                        302,
+                        304
+                    ],
+                    "utilizacion": 89.58,
+                    "tiempo_uso": 430
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Tarde",
+                    "especialidad": "Urología",
+                    "pacientes_ids": [
+                        400,
+                        403,
+                        404,
+                        406
+                    ],
+                    "utilizacion": 94.17,
+                    "tiempo_uso": 452
+                }
+            ]
+        },
+        {
+            "nombre": "Miércoles",
+            "bloques": [
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Mañana",
+                    "especialidad": "Neurología",
+                    "pacientes_ids": [
+                        300,
+                        301,
+                        302,
+                        304
+                    ],
+                    "utilizacion": 89.58,
+                    "tiempo_uso": 430
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Traumatología",
+                    "pacientes_ids": [
+                        100,
+                        102,
+                        104,
+                        105
+                    ],
+                    "utilizacion": 76.04,
+                    "tiempo_uso": 365
+                },
+                {
+                    "quirofano": "Quirófano 3 (Baja)",
+                    "turno": "Mañana",
+                    "especialidad": "Cirugía General",
+                    "pacientes_ids": [
+                        200,
+                        201,
+                        204,
+                        211,
+                        213
+                    ],
+                    "utilizacion": 98.96,
+                    "tiempo_uso": 475
+                },
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Tarde",
+                    "especialidad": "Neurología",
+                    "pacientes_ids": [
+                        300,
+                        301,
+                        302,
+                        304
+                    ],
+                    "utilizacion": 89.58,
+                    "tiempo_uso": 430
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Tarde",
+                    "especialidad": "Traumatología",
+                    "pacientes_ids": [
+                        100,
+                        102,
+                        104,
+                        105
+                    ],
+                    "utilizacion": 76.04,
+                    "tiempo_uso": 365
+                }
+            ]
+        },
+        {
+            "nombre": "Jueves",
+            "bloques": [
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Mañana",
+                    "especialidad": "Cirugía General",
+                    "pacientes_ids": [
+                        200,
+                        201,
+                        204,
+                        211,
+                        213
+                    ],
+                    "utilizacion": 98.96,
+                    "tiempo_uso": 475
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Traumatología",
+                    "pacientes_ids": [
+                        100,
+                        102,
+                        104,
+                        105
+                    ],
+                    "utilizacion": 76.04,
+                    "tiempo_uso": 365
+                },
+                {
+                    "quirofano": "Quirófano 3 (Baja)",
+                    "turno": "Mañana",
+                    "especialidad": "Ginecología",
+                    "pacientes_ids": [
+                        501,
+                        504,
+                        505
+                    ],
+                    "utilizacion": 85.0,
+                    "tiempo_uso": 408
+                },
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Tarde",
+                    "especialidad": "Cirugía General",
+                    "pacientes_ids": [
+                        200,
+                        201,
+                        204,
+                        211,
+                        213
+                    ],
+                    "utilizacion": 98.96,
+                    "tiempo_uso": 475
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Tarde",
+                    "especialidad": "Traumatología",
+                    "pacientes_ids": [
+                        100,
+                        102,
+                        104,
+                        105
+                    ],
+                    "utilizacion": 76.04,
+                    "tiempo_uso": 365
+                }
+            ]
+        },
+        {
+            "nombre": "Viernes",
+            "bloques": [
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Mañana",
+                    "especialidad": "Neurología",
+                    "pacientes_ids": [
+                        300,
+                        301,
+                        302,
+                        304
+                    ],
+                    "utilizacion": 89.58,
+                    "tiempo_uso": 430
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Ginecología",
+                    "pacientes_ids": [
+                        501,
+                        504,
+                        505
+                    ],
+                    "utilizacion": 85.0,
+                    "tiempo_uso": 408
+                },
+                {
+                    "quirofano": "Quirófano 3 (Baja)",
+                    "turno": "Mañana",
+                    "especialidad": "Ginecología",
+                    "pacientes_ids": [
+                        501,
+                        504,
+                        505
+                    ],
+                    "utilizacion": 85.0,
+                    "tiempo_uso": 408
+                },
+                {
+                    "quirofano": "Quirófano 1 (Alta)",
+                    "turno": "Tarde",
+                    "especialidad": "Traumatología",
+                    "pacientes_ids": [
+                        100,
+                        102,
+                        104,
+                        105
+                    ],
+                    "utilizacion": 76.04,
+                    "tiempo_uso": 365
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Tarde",
+                    "especialidad": "Urología",
+                    "pacientes_ids": [
+                        400,
+                        403,
+                        404,
+                        406
+                    ],
+                    "utilizacion": 94.17,
+                    "tiempo_uso": 452
+                }
+            ]
+        }
+    ]
+}

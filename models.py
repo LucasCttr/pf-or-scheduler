@@ -37,7 +37,16 @@ class Patient:
     specialty_id: int
     estimated_duration: int     # duración estimada de la cirugía en minutos
     clinical_priority: float    # peso combinado de urgencia + tiempo de espera
-    required_roles: List[str] = field(default_factory=list)  # ["cirujano", "anestesista", ...]
+    required_roles: List[str] = field(default_factory=list)  # ["cirujano", "anestesista", ...]   FALTA IMPLEMENTAR
+
+
+@dataclass
+class Staff:
+    id: int
+    name: str
+    role: str  # "cirujano", "anestesista", etc.
+    specialty_id: int # Para los cirujanos
+    availability: List[List[bool]] # No todos están todos los días
 
 
 @dataclass
