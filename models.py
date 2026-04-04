@@ -2,7 +2,7 @@
 models.py — Estructuras de datos del dominio.
 """
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -32,13 +32,13 @@ class Specialty:
 
 @dataclass
 class Patient:
-    """Representa un paciente en lista de espera (entrada al Nivel 2 y MIP)."""
     id: int
     specialty_id: int
-    estimated_duration: int     # duración estimada de la cirugía en minutos
-    clinical_priority: float    # peso combinado de urgencia + tiempo de espera
-    required_roles: List[str] = field(default_factory=list)  # ["cirujano", "anestesista", ...]   FALTA IMPLEMENTAR
-
+    estimated_duration: int
+    clinical_priority: float
+    required_roles: List[str] = field(default_factory=list)
+    # ID del médico asignado (opcional)
+    forced_surgeon_id: Optional[int] = None
 
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
@@ -48,7 +48,7 @@ class Staff:
     id: int
     name: str
     role: str  # "cirujano", "anestesista", etc.
-    specialty_id: int
+    specialties_ids: List[int]
     # Disponibilidad: {día_idx: (inicio_minutos, fin_minutos)}
     # Ejemplo: {0: (480, 720)} es Lunes de 08:00 a 12:00
     availability_hours: Dict[int, Tuple[int, int]]
