@@ -118,7 +118,7 @@ def main():
     best = ga.run()
     ga.print_schedule(best)
 
-    # ── 5. RECONSTRUCCIÓN DE LA AGENDA (HEURÍSTICA DE TRENES) ───────────
+   # ── 5. RECONSTRUCCIÓN DE LA AGENDA (HEURÍSTICA DE TRENES CON LÍMITE HORARIO) ──
     print("\n▶  Generando cronograma con Heurística de Trenes...")
     schedule_cache = ga.get_schedule_details(best)
     
@@ -132,20 +132,22 @@ def main():
             is_morning = (t == 0)
             
             # Punteros de tiempo (Relojes)
-            # El médico empieza cuando abre el bloque o según su disponibilidad personal
             libre_staff = {s.id: s.get_range_for_block(d, is_morning)[0] for s in staff_list}
-            # El quirófano empieza exactamente al inicio del turno (08:00 o 13:00)
             libre_q = {or_obj.id: (480 if is_morning else 780) for or_obj in operating_rooms}
 
-            # --- PASO A: Agrupar y Ordenar (La esencia de la Heurística) ---
+            # --- PASO A: Agrupar y Ordenar por Límite de Salida ---
             asignaciones_por_q = {}
             for q_idx in range(len(operating_rooms)):
                 detalles = schedule_cache.get((d, t, q_idx))
                 if detalles and detalles["asignaciones"]:
-                    # Ordenamos: 1º por Médico (crea el 'tren'), 2º por Prioridad (dentro del tren)
+                    # CRÍTICO: Ordenamos primero por quién se va ANTES del hospital
+                    # Esto asegura que Pérez (sale 10:00) vaya antes que Sosa (sale 12:00)
                     asigs_ordenadas = sorted(
                         detalles["asignaciones"], 
-                        key=lambda x: (x["doc"], -all_patients_lookup[x["p"]].clinical_priority)
+                        key=lambda x: (
+                            next(s.get_range_for_block(d, is_morning)[1] for s in staff_list if s.name == x["doc"]),
+                            -all_patients_lookup[x["p"]].clinical_priority
+                        )
                     )
                     asignaciones_por_q[q_idx] = asigs_ordenadas
                 else:
@@ -155,7 +157,6 @@ def main():
             quirofanos_activos = [q for q, asigs in asignaciones_por_q.items() if asigs]
 
             # --- PASO B: Simulación de avance de tiempo ---
-            # Mientras haya cirugías pendientes en algún quirófano...
             while quirofanos_activos:
                 for q_idx in quirofanos_activos[:]:
                     if not asignaciones_por_q[q_idx]:
@@ -167,36 +168,33 @@ def main():
                     medico = next(s for s in staff_list if s.name == asig["doc"])
                     or_id = operating_rooms[q_idx].id
 
-                    # Lógica de Sincronización:
-                    # La cirugía empieza cuando el médico llega Y la sala está vacía
+                    # Consultamos el límite de salida real del médico
+                    _, limite_salida = medico.get_range_for_block(d, is_morning)
+
+                    # La cirugía empieza cuando médico y sala están libres
                     inicio = max(libre_staff[medico.id], libre_q[or_id])
-                    
-                    # Si el inicio es 0 (médico no disponible), algo falló en el MIP,
-                    # pero aquí lo manejamos por seguridad:
-                    if inicio == 0: 
+                    fin = inicio + p_obj.estimated_duration
+
+                    # VALIDACIÓN: Si el médico no llega a terminar, se descarta (o podrías loguearlo)
+                    if fin > limite_salida:
+                        print(f"  [!] Conflicto: {medico.name} excede salida en Q{q_idx+1} (Fin {fin//60:02d}:{fin%60:02d} > Límite {limite_salida//60:02d}:{limite_salida%60:02d})")
                         asignaciones_por_q[q_idx].pop(0)
                         continue
-
-                    fin = inicio + p_obj.estimated_duration
 
                     cronogramas_finales[q_idx].append({
                         "paciente_id": p_obj.id,
                         "medico": medico.name,
                         "hora_inicio": f"{inicio // 60:02d}:{inicio % 60:02d}",
-                        "hora_fin": f"{fin // 60:02d}:{fin % 60:02d}",
-                        "duracion": p_obj.estimated_duration,
-                        "prioridad": p_obj.clinical_priority
+                        "hora_fin": f"{fin    // 60:02d}:{fin    % 60:02d}",
+                        "duracion": p_obj.estimated_duration
                     })
 
-                    # Actualizamos relojes globales
                     libre_staff[medico.id] = fin
                     libre_q[or_id] = fin
-                    
-                    # Quitamos de la cola de este quirófano
                     asignaciones_por_q[q_idx].pop(0)
                     pacientes_asignados_semana.add(p_obj.id)
 
-            # --- PASO C: Construcción del JSON por Bloque ---
+            # --- PASO C: Construcción del JSON ---
             for q_idx in range(len(operating_rooms)):
                 spec_id = int(best.chromosome[d, t, q_idx])
                 spec_name = next(s.name for s in specialties if s.id == spec_id)
