@@ -57,6 +57,28 @@ def solve_mip_for_shift(
             if s.id not in surgeon_cap:
                 surgeon_cap[s.id] = s.get_available_minutes_in_block(day_idx, is_morning)
 
+    # ── 2b. Capacidad efectiva por (cirujano, quirófano) ─────────────────
+    # Los cirujanos comparten el quirófano en serie: el que tiene límite de
+    # salida más temprano va primero. Por eso, la ventana disponible para el
+    # cirujano S en el OR Q es: t_max - tiempo_acumulado_de_cirujanos_anteriores.
+    # Esto impide que el MIP asigne más trabajo del que físicamente puede entrar.
+    surgeon_or_eff_cap: Dict[tuple, int] = {}  # (s_id, or_idx) -> minutos efectivos
+    for b in active:
+        q = b["or_idx"]
+        # Ordenar cirujanos por hora de salida del bloque (ascendente = sale antes)
+        sorted_surgeons = sorted(
+            b["surgeons"],
+            key=lambda s: s.get_range_for_block(day_idx, is_morning)[1]
+        )
+        accumulated_or_time = 0
+        for s in sorted_surgeons:
+            s_cap = surgeon_cap.get(s.id, 0)
+            # Tiempo del quirófano que queda cuando le toca a este cirujano
+            or_remaining = max(0, b["t_max"] - accumulated_or_time)
+            effective = min(s_cap, or_remaining)
+            surgeon_or_eff_cap[(s.id, q)] = effective
+            accumulated_or_time += effective  # este cirujano consume su ventana efectiva
+
     t_max_total = sum(b["t_max"] for b in active)
 
     # ── 3. Problema ───────────────────────────────────────────────────────
@@ -123,6 +145,21 @@ def solve_mip_for_shift(
                 for s in b["surgeons"]:
                     if s.id != forced and (p.id, s.id, q) in x:
                         prob += x[(p.id, s.id, q)] == 0
+
+    # R5: capacidad efectiva por (cirujano, quirófano) — evita sobrepasar el límite
+    # de salida del cirujano considerando el tiempo de cola del quirófano.
+    # Reemplaza la visión "capacidad agregada" del MIP por una visión secuencial.
+    for b in active:
+        q = b["or_idx"]
+        for s in b["surgeons"]:
+            eff_cap = surgeon_or_eff_cap.get((s.id, q), 0)
+            terms = [
+                p.estimated_duration * x[(p.id, s.id, q)]
+                for p in b["patients"]
+                if (p.id, s.id, q) in x
+            ]
+            if terms:
+                prob += lpSum(terms) <= eff_cap
 
     # ── 7. Resolver ───────────────────────────────────────────────────────
     prob.solve(PULP_CBC_CMD(msg=0))

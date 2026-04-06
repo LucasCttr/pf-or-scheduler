@@ -132,11 +132,11 @@ def main():
             is_morning = (t == 0)
             
             # Punteros de tiempo (Relojes)
-            libre_staff = {s.id: s.get_range_for_block(d, is_morning)[0] for s in staff_list}
-            libre_q = {or_obj.id: (480 if is_morning else 780) for or_obj in operating_rooms}
+            libre_staff = {s.id: s.get_range_for_block(d, is_morning)[0] for s in staff_list} # Hora de inicio de disponibilidad para cada médico
+            libre_q = {or_obj.id: (480 if is_morning else 780) for or_obj in operating_rooms} # Hora de inicio del bloque para cada quirófano (8:00 o 13:00)
 
             # --- PASO A: Agrupar y Ordenar por Límite de Salida ---
-            asignaciones_por_q = {}
+            asignaciones_por_q = {} # Índice de quirófano -> Lista de asignaciones ordenadas por quién sale antes del hospital (límite de salida) y prioridad clínica
             for q_idx in range(len(operating_rooms)):
                 detalles = schedule_cache.get((d, t, q_idx))
                 if detalles and detalles["asignaciones"]:
@@ -156,11 +156,12 @@ def main():
             cronogramas_finales = {q: [] for q in range(len(operating_rooms))}
             quirofanos_activos = [q for q, asigs in asignaciones_por_q.items() if asigs]
 
-            # --- PASO B: Simulación de avance de tiempo ---
+            # --- PASO B: Simulación de avance de tiempo (SIN TOLERANCIA - LÍMITE ESTRICTO) ---
             while quirofanos_activos:
-                for q_idx in quirofanos_activos[:]:
+                for q_idx in list(quirofanos_activos): 
                     if not asignaciones_por_q[q_idx]:
-                        quirofanos_activos.remove(q_idx)
+                        if q_idx in quirofanos_activos:
+                            quirofanos_activos.remove(q_idx)
                         continue
                     
                     asig = asignaciones_por_q[q_idx][0]
@@ -168,29 +169,39 @@ def main():
                     medico = next(s for s in staff_list if s.name == asig["doc"])
                     or_id = operating_rooms[q_idx].id
 
-                    # Consultamos el límite de salida real del médico
+                    # Límite de salida real (ej: 600 para las 10:00 o 720 para las 12:00)
                     _, limite_salida = medico.get_range_for_block(d, is_morning)
 
-                    # La cirugía empieza cuando médico y sala están libres
-                    inicio = max(libre_staff[medico.id], libre_q[or_id])
-                    fin = inicio + p_obj.estimated_duration
+                    # Cálculo de tiempos
+                    hora_inicio_min = max(libre_staff[medico.id], libre_q[or_id]) 
+                    duracion = p_obj.estimated_duration
+                    hora_fin_min = hora_inicio_min + duracion
 
-                    # VALIDACIÓN: Si el médico no llega a terminar, se descarta (o podrías loguearlo)
-                    if fin > limite_salida:
-                        print(f"  [!] Conflicto: {medico.name} excede salida en Q{q_idx+1} (Fin {fin//60:02d}:{fin%60:02d} > Límite {limite_salida//60:02d}:{limite_salida%60:02d})")
-                        asignaciones_por_q[q_idx].pop(0)
-                        continue
+                    # --- GESTIÓN DE CONFLICTO ESTRICTA ---
+                    if hora_fin_min > limite_salida:
+                        nombre_dia = ga.DAY_NAMES[d]
+                        nombre_turno = ga.SHIFT_NAMES[t]
+                        print(f"  [!] CONFLICTO ESTRICTO | {nombre_dia} ({nombre_turno})")
+                        print(f"      {medico.name} excede salida en {operating_rooms[q_idx].name}")
+                        print(f"      Fin calculado: {hora_fin_min//60:02d}:{hora_fin_min%60:02d} | Límite: {limite_salida//60:02d}:{limite_salida%60:02d}")
+                        
+                        # Al no haber tolerancia, esta cirugía NO entra al JSON
+                        asignaciones_por_q[q_idx].pop(0) 
+                        continue 
 
+                    # --- ASIGNACIÓN EXITOSA ---
                     cronogramas_finales[q_idx].append({
                         "paciente_id": p_obj.id,
                         "medico": medico.name,
-                        "hora_inicio": f"{inicio // 60:02d}:{inicio % 60:02d}",
-                        "hora_fin": f"{fin    // 60:02d}:{fin    % 60:02d}",
-                        "duracion": p_obj.estimated_duration
+                        "hora_inicio": f"{hora_inicio_min // 60:02d}:{hora_inicio_min % 60:02d}",
+                        "hora_fin": f"{hora_fin_min // 60:02d}:{hora_fin_min % 60:02d}",
+                        "duracion": duracion
                     })
 
-                    libre_staff[medico.id] = fin
-                    libre_q[or_id] = fin
+                    # Actualización de relojes para la siguiente iteración
+                    libre_staff[medico.id] = hora_fin_min
+                    libre_q[or_id] = hora_fin_min
+                    
                     asignaciones_por_q[q_idx].pop(0)
                     pacientes_asignados_semana.add(p_obj.id)
 
