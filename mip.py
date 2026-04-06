@@ -148,7 +148,6 @@ def solve_mip_for_shift(
 
     # R5: capacidad efectiva por (cirujano, quirófano) — evita sobrepasar el límite
     # de salida del cirujano considerando el tiempo de cola del quirófano.
-    # Reemplaza la visión "capacidad agregada" del MIP por una visión secuencial.
     for b in active:
         q = b["or_idx"]
         for s in b["surgeons"]:

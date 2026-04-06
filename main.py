@@ -1,233 +1,251 @@
 """
-main.py — Sistema de Planificación Quirúrgica (Modelo Híbrido)
-Hospital Centenario, Gualeguaychú.
+mip.py — Nivel 3: MIP por turno completo.
+
+solve_mip_for_shift resuelve un único problema de optimización por turno
+que cubre todos los quirófanos activos. La restricción de capacidad del
+cirujano aplica sobre la suma de todos los ORs del turno, eliminando la
+necesidad de rastrear un monedero externo (version anterior).
 """
-import json
-import random
-import time
-from models import OperatingRoom, Specialty, Patient, GAConfig, Staff
-from genetic_algorithm import GeneticAlgorithm
+from pulp import LpProblem, LpVariable, lpSum, LpMaximize, value, PULP_CBC_CMD
+from typing import List, Dict, Any
 
-def make_patients(specialty_id: int, count: int, seed: int = 0, staff_list: list = None) -> list:
+
+def solve_mip_for_shift(
+    blocks: List[Dict],
+    day_idx: int,
+    is_morning: bool,
+    alpha: float = 0.7,
+    beta: float = 0.3,
+    gamma: float = 0.05,
+) -> Dict[str, Any]:
     """
-    Genera pacientes de prueba. 
-    Implementa el MODELO HÍBRIDO: algunos pacientes tienen médico asignado y otros no.
+    Parámetros
+    ----------
+    blocks : lista de dicts, uno por quirófano en el turno:
+        {
+            "or_idx"   : int,
+            "spec_id"  : int,
+            "patients" : List[Patient],
+            "surgeons" : List[Staff],   # ya filtrados: specialty_id correcto y cap > 0
+            "t_max"    : int,           # minutos físicos del quirófano en este turno
+        }
+
+    Retorna
+    -------
+    {
+        "fitness"          : float,
+        "all_pacientes_ids": List[int],
+        "per_or"           : { or_idx: { pacientes_ids, asignaciones,
+                                          consumo_medicos, t_max,
+                                          uso_tiempo, utilizacion_porcentaje } }
+    }
     """
-    rng = random.Random(seed)
-    duraciones_permitidas = [30, 45, 60, 90, 120]
-    
-    # Obtener IDs de cirujanos de esta especialidad para asignaciones aleatorias
-    cirujanos_ids = []
-    if staff_list:
-        cirujanos_ids = [s.id for s in staff_list if specialty_id in s.specialties_ids]
-    
-    patients = []
-    
-    # --- 1. CASO CRÍTICO (Paciente 2000) ---
-    if specialty_id == 1:
-        urgencia = Patient(
-            id=2000,
-            specialty_id=1,
-            estimated_duration=200, # 3.55 hs
-            clinical_priority=99.0, # Urgencia máxima
-            required_roles=["cirujano", "anestesista", "instrumentador"],
-            forced_surgeon_id=1    # Forzado al Dr. Pérez (ID 1)
+    # ── 1. Filtrar bloques activos ────────────────────────────────────────
+    active = [
+        b for b in blocks
+        if b["spec_id"] > 0 and b["surgeons"] and b["patients"] and b["t_max"] > 0
+    ]
+
+    empty_per_or = {b["or_idx"]: _empty_or(b["or_idx"]) for b in blocks}
+
+    if not active:
+        return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": empty_per_or}
+
+    # ── 2. Capacidad por cirujano (global sobre el turno completo) ─────────
+    surgeon_cap: Dict[int, int] = {}
+    for b in active:
+        for s in b["surgeons"]:
+            if s.id not in surgeon_cap:
+                surgeon_cap[s.id] = s.get_available_minutes_in_block(day_idx, is_morning)
+
+    # ── 2b. Capacidad efectiva por (cirujano, quirófano) ─────────────────
+    # Los cirujanos comparten el quirófano en serie: el que tiene límite de
+    # salida más temprano va primero. Por eso, la ventana disponible para el
+    # cirujano S en el OR Q es: t_max - tiempo_acumulado_de_cirujanos_anteriores.
+    # Esto impide que el MIP asigne más trabajo del que físicamente puede entrar.
+    surgeon_or_eff_cap: Dict[tuple, int] = {}  # (s_id, or_idx) -> minutos efectivos
+    for b in active:
+        q = b["or_idx"]
+        # Ordenar cirujanos por hora de salida del bloque (ascendente = sale antes)
+        sorted_surgeons = sorted(
+            b["surgeons"],
+            key=lambda s: s.get_range_for_block(day_idx, is_morning)[1]
         )
-        patients.append(urgencia)
-        
-    # --- 2. RESTO DE PACIENTES ---
-    for i in range(count):
-        # 20% de probabilidad de tener un médico asignado (Modelo Híbrido)
-        asignado_id = None
-        if cirujanos_ids and rng.random() < 0.20:
-            asignado_id = rng.choice(cirujanos_ids)
+        accumulated_or_time = 0
+        for s in sorted_surgeons:
+            s_cap = surgeon_cap.get(s.id, 0)
+            # Tiempo del quirófano que queda cuando le toca a este cirujano
+            or_remaining = max(0, b["t_max"] - accumulated_or_time)
+            effective = min(s_cap, or_remaining)
+            surgeon_or_eff_cap[(s.id, q)] = effective
+            accumulated_or_time += effective  # este cirujano consume su ventana efectiva
 
-        p = Patient(
-            id=specialty_id * 100 + i,
-            specialty_id=specialty_id,
-            estimated_duration=rng.choice(duraciones_permitidas),
-            clinical_priority=round(rng.uniform(1.0, 10.0), 2),
-            required_roles=["cirujano", "anestesista", "instrumentador"],
-            forced_surgeon_id=asignado_id
-        )
-        patients.append(p)
-        
-    return patients
+    t_max_total = sum(b["t_max"] for b in active)
 
-def main():
-    random.seed(42)
-    start_time = time.perf_counter()
+    # ── 3. Problema ───────────────────────────────────────────────────────
+    label = f"MIP_shift_{day_idx}_{'M' if is_morning else 'T'}"
+    prob  = LpProblem(label, LpMaximize)
 
-    # ── 1. DEFINICIÓN DE STAFF (Médicos) ──────────────────────────────────
-    staff_list = [
-        # Dr. Pérez: Traumatología (1) y Cirugía General (2)
-        Staff(id=1, name="Dr. Pérez", role="cirujano", specialties_ids=[1, 2], 
-              availability_hours={0: (480, 620), 1: (780, 1020)}), 
-        Staff(id=2, name="Dra. Sosa", role="cirujano", specialties_ids=[1], 
-              availability_hours={0: (480, 1020), 2: (480, 720)}), 
-        Staff(id=3, name="Dra. Carter", role="cirujano", specialties_ids=[1], 
-              availability_hours={0: (620, 1020), 2: (480, 720)}), 
-        # Dr. Gomez: Cirugía General (2) y Urología (4)
-        Staff(id=4, name="Dr. Gomez", role="cirujano", specialties_ids=[2, 4], 
-              availability_hours={0: (480, 720), 1: (480, 720)}), 
-        Staff(id=5, name="Dra. Ruiz", role="cirujano", specialties_ids=[2], 
-              availability_hours={1: (780, 1020), 3: (780, 1020)}), 
-        Staff(id=6, name="Dr. Martinez", role="cirujano", specialties_ids=[2], 
-              availability_hours={2: (480, 600), 4: (480, 720)}), 
-        Staff(id=7, name="Dra. Blanco", role="cirujano", specialties_ids=[3], 
-              availability_hours={3: (480, 720), 4: (780, 1020)}),
-        Staff(id=8, name="Dr. Lopez", role="cirujano", specialties_ids=[3], 
-              availability_hours={0: (780, 1020), 2: (780, 1020)}), 
-        Staff(id=9, name="Dra. García", role="cirujano", specialties_ids=[4, 5], 
-              availability_hours={1: (480, 720), 3: (480, 720)}), 
-        Staff(id=10, name="Dr. Rodríguez", role="cirujano", specialties_ids=[4, 5],
-              availability_hours={2: (780, 1020), 4: (780, 1020)})
-    ]
+    # ── 4. Variables ─────────────────────────────────────────────────────
+    # x[p_id, s_id, q] = 1 si el paciente p es operado por el cirujano s en OR q
+    x: Dict = {}
+    for b in active:
+        q = b["or_idx"]
+        for p in b["patients"]:
+            for s in b["surgeons"]:
+                x[(p.id, s.id, q)] = LpVariable(f"x_p{p.id}_s{s.id}_q{q}", cat="Binary")
 
-    # ── 2. QUIRÓFANOS Y ESPECIALIDADES ────────────────────────────────────
-    operating_rooms = [
-        OperatingRoom(id=0, name="Quirófano 1 (Alta)", or_type="alta_complejidad", availability=[[True, True]]*5),
-        OperatingRoom(id=1, name="Quirófano 2 (Media)", or_type="media_complejidad", availability=[[True, True]]*5),
-        OperatingRoom(id=2, name="Quirófano 3 (Baja)", or_type="baja_complejidad", availability=[[True, False]]*5),
-    ]
+    if not x:
+        return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": empty_per_or}
 
-    specialties = [
-        Specialty(id=0, name="Libre", compatible_or_types=[], min_blocks=0, max_blocks=99),
-        Specialty(id=1, name="Traumatología", compatible_or_types=["alta_complejidad", "media_complejidad"], min_blocks=3, max_blocks=6),
-        Specialty(id=2, name="Cirugía General", compatible_or_types=["alta_complejidad", "media_complejidad", "baja_complejidad"], min_blocks=4, max_blocks=8),
-        Specialty(id=3, name="Neurología", compatible_or_types=["alta_complejidad"], min_blocks=2, max_blocks=4),
-        Specialty(id=4, name="Urología", compatible_or_types=["media_complejidad", "baja_complejidad"], min_blocks=2, max_blocks=5),
-        Specialty(id=5, name="Ginecología", compatible_or_types=["media_complejidad", "baja_complejidad"], min_blocks=2, max_blocks=5),
-    ]
-
-    # ── 3. GENERAR PACIENTES (HÍBRIDO) ────────────────────────────────────
-    patients_by_specialty = {
-        sid: make_patients(sid, count=40, seed=sid, staff_list=staff_list) 
-        for sid in range(1, 6)
+    # c[s_id, q] = 1 si el cirujano s opera al menos una vez en OR q.
+    # Usada para calcular el bonus de concentración: se premia que un cirujano
+    # acumule sus cirugías en un único quirófano en lugar de dispersarse.
+    # La penalización es proporcional al número de ORs distintos que usa:
+    # un cirujano en 1 OR aporta -gamma*1, en 2 ORs aporta -gamma*2, etc.
+    c: Dict = {
+        (s.id, b["or_idx"]): LpVariable(f"c_s{s.id}_q{b['or_idx']}", cat="Binary")
+        for b in active
+        for s in b["surgeons"]
     }
 
-    # ── 4. EJECUTAR ALGORITMO GENÉTICO ────────────────────────────────────
-    config = GAConfig(
-        population_size=50, max_generations=200, convergence_patience=15,
-        mutation_rate=0.10, crossover_rate=0.85, tournament_size=5,
-        elite_count=2, n_days=5, n_shifts=2, block_duration_min=240,
-        penalty_below_min_quota=50.0, penalty_above_max_quota=20.0,
-    )
+    # ── 5. Objetivo ───────────────────────────────────────────────────────
+    all_combos = [(p, s, b["or_idx"]) for b in active for p in b["patients"] for s in b["surgeons"]]
 
-    ga = GeneticAlgorithm(config, operating_rooms, specialties, patients_by_specialty, staff_list)
-    best = ga.run()
-    ga.print_schedule(best)
+    obj_prio = lpSum(p.clinical_priority  * x[(p.id, s.id, q)] for p, s, q in all_combos)
+    obj_util = lpSum(p.estimated_duration * x[(p.id, s.id, q)] for p, s, q in all_combos) / t_max_total
 
-   # ── 5. RECONSTRUCCIÓN DE LA AGENDA (HEURÍSTICA DE TRENES CON LÍMITE HORARIO) ──
-    print("\n▶  Generando cronograma con Heurística de Trenes...")
-    schedule_cache = ga.get_schedule_details(best)
-    
-    all_patients_lookup = {p.id: p for lista in patients_by_specialty.values() for p in lista}
-    pacientes_asignados_semana = set()
-    agenda_final = {"hospital": "Hospital Centenario", "fitness_total": round(best.fitness, 4), "dias": []}
+    # Bonus de concentración: restar el número total de (cirujano, OR) activos.
+    # Cuantos menos ORs distintos use un cirujano, menor es la suma → mayor fitness.
+    # gamma pequeño (0.05) garantiza que no desplace pacientes de alta prioridad.
+    # solo desempata cuando las opciones son equivalentes en prioridad y utilización.
+    obj_concentracion = lpSum(c[(s.id, b["or_idx"])] for b in active for s in b["surgeons"])
 
-    for d in range(config.n_days):
-        dia_dict = {"nombre": ga.DAY_NAMES[d], "bloques": []}
-        for t in range(config.n_shifts):
-            is_morning = (t == 0)
-            
-            # Punteros de tiempo (Relojes)
-            libre_staff = {s.id: s.get_range_for_block(d, is_morning)[0] for s in staff_list} # Hora de inicio de disponibilidad para cada médico
-            libre_q = {or_obj.id: (480 if is_morning else 780) for or_obj in operating_rooms} # Hora de inicio del bloque para cada quirófano (8:00 o 13:00)
+    prob += (alpha * obj_prio) + (beta * obj_util) - (gamma * obj_concentracion)
 
-            # --- PASO A: Agrupar y Ordenar por Límite de Salida ---
-            asignaciones_por_q = {} # Índice de quirófano -> Lista de asignaciones ordenadas por quién sale antes del hospital (límite de salida) y prioridad clínica
-            for q_idx in range(len(operating_rooms)):
-                detalles = schedule_cache.get((d, t, q_idx))
-                if detalles and detalles["asignaciones"]:
-                    # CRÍTICO: Ordenamos primero por quién se va ANTES del hospital
-                    # Esto asegura que Pérez (sale 10:00) vaya antes que Sosa (sale 12:00)
-                    asigs_ordenadas = sorted(
-                        detalles["asignaciones"], 
-                        key=lambda x: (
-                            next(s.get_range_for_block(d, is_morning)[1] for s in staff_list if s.name == x["doc"]),
-                            -all_patients_lookup[x["p"]].clinical_priority
-                        )
-                    )
-                    asignaciones_por_q[q_idx] = asigs_ordenadas
-                else:
-                    asignaciones_por_q[q_idx] = []
+    # ── 6. Restricciones ─────────────────────────────────────────────────
 
-            cronogramas_finales = {q: [] for q in range(len(operating_rooms))}
-            quirofanos_activos = [q for q, asigs in asignaciones_por_q.items() if asigs]
+    # R1: cada paciente se opera como máximo una vez en el turno (en cualquier OR)
+    all_patient_ids = {p.id for b in active for p in b["patients"]}
+    for p_id in all_patient_ids:
+        terms = [v for (pid, sid, q), v in x.items() if pid == p_id]
+        if terms:
+            prob += lpSum(terms) <= 1
 
-            # --- PASO B: Simulación de avance de tiempo (SIN TOLERANCIA - LÍMITE ESTRICTO) ---
-            while quirofanos_activos:
-                for q_idx in list(quirofanos_activos): 
-                    if not asignaciones_por_q[q_idx]:
-                        if q_idx in quirofanos_activos:
-                            quirofanos_activos.remove(q_idx)
-                        continue
-                    
-                    asig = asignaciones_por_q[q_idx][0]
-                    p_obj = all_patients_lookup[asig["p"]]
-                    medico = next(s for s in staff_list if s.name == asig["doc"])
-                    or_id = operating_rooms[q_idx].id
+    # R2: cada cirujano no supera su capacidad total en el turno
+    #     la restricción cruza todos los ORs donde ese cirujano aparece
+    for s_id, cap in surgeon_cap.items():
+        terms = [
+            p.estimated_duration * x[(p.id, s_id, b["or_idx"])]
+            for b in active
+            for p in b["patients"]
+            if (p.id, s_id, b["or_idx"]) in x
+        ]
+        if terms:
+            prob += lpSum(terms) <= cap
 
-                    # Límite de salida real (ej: 600 para las 10:00 o 720 para las 12:00)
-                    _, limite_salida = medico.get_range_for_block(d, is_morning)
+    # R3: cada quirófano no supera su capacidad física
+    for b in active:
+        q     = b["or_idx"]
+        terms = [
+            p.estimated_duration * x[(p.id, s.id, q)]
+            for p in b["patients"]
+            for s in b["surgeons"]
+        ]
+        if terms:
+            prob += lpSum(terms) <= b["t_max"]
 
-                    # Cálculo de tiempos
-                    hora_inicio_min = max(libre_staff[medico.id], libre_q[or_id]) 
-                    duracion = p_obj.estimated_duration
-                    hora_fin_min = hora_inicio_min + duracion
+    # R4: modelo híbrido — si el paciente ya tiene un médico asignado, nadie más lo opera
+    for b in active:
+        q = b["or_idx"]
+        for p in b["patients"]:
+            forced = getattr(p, "forced_surgeon_id", None)
+            if forced is not None:
+                for s in b["surgeons"]:
+                    if s.id != forced and (p.id, s.id, q) in x:
+                        prob += x[(p.id, s.id, q)] == 0
 
-                    # --- GESTIÓN DE CONFLICTO ESTRICTA ---
-                    if hora_fin_min > limite_salida:
-                        nombre_dia = ga.DAY_NAMES[d]
-                        nombre_turno = ga.SHIFT_NAMES[t]
-                        print(f"  [!] CONFLICTO ESTRICTO | {nombre_dia} ({nombre_turno})")
-                        print(f"      {medico.name} excede salida en {operating_rooms[q_idx].name}")
-                        print(f"      Fin calculado: {hora_fin_min//60:02d}:{hora_fin_min%60:02d} | Límite: {limite_salida//60:02d}:{limite_salida%60:02d}")
-                        
-                        # Al no haber tolerancia, esta cirugía NO entra al JSON
-                        asignaciones_por_q[q_idx].pop(0) 
-                        continue 
+    # R5: capacidad efectiva por (cirujano, quirófano) — evita sobrepasar el límite
+    # de salida del cirujano considerando el tiempo de cola del quirófano.
+    for b in active:
+        q = b["or_idx"]
+        for s in b["surgeons"]:
+            eff_cap = surgeon_or_eff_cap.get((s.id, q), 0)
+            terms = [
+                p.estimated_duration * x[(p.id, s.id, q)]
+                for p in b["patients"]
+                if (p.id, s.id, q) in x
+            ]
+            if terms:
+                prob += lpSum(terms) <= eff_cap
 
-                    # --- ASIGNACIÓN EXITOSA ---
-                    cronogramas_finales[q_idx].append({
-                        "paciente_id": p_obj.id,
-                        "medico": medico.name,
-                        "hora_inicio": f"{hora_inicio_min // 60:02d}:{hora_inicio_min % 60:02d}",
-                        "hora_fin": f"{hora_fin_min // 60:02d}:{hora_fin_min % 60:02d}",
-                        "duracion": duracion
-                    })
+    # R6 y R7: vinculación de c[s, q] con las asignaciones x ──────────────
+    # R6: c[s,q] solo puede ser 1 si el cirujano tiene al menos una asignación en q.
+    #     Sin esto el solver podría poner c=0 aunque haya asignaciones (evita bonus falso).
+    # R7: c[s,q] debe ser 1 si hay alguna asignación de s en q.
+    #     Sin esto el solver podría poner c=0 para minimizar la penalización
+    #     aunque el cirujano sí opere en ese quirófano (evita trampear el objetivo).
+    for b in active:
+        q = b["or_idx"]
+        for s in b["surgeons"]:
+            asignaciones_s_q = [
+                x[(p.id, s.id, q)]
+                for p in b["patients"]
+                if (p.id, s.id, q) in x
+            ]
+            if not asignaciones_s_q:
+                continue
+            n = len(asignaciones_s_q)
+            # R6: sum(x) >= c  →  si nadie asignado, c no puede ser 1
+            prob += lpSum(asignaciones_s_q) >= c[(s.id, q)]
+            # R7: n * c >= sum(x)  →  si alguien asignado, c debe ser 1
+            prob += n * c[(s.id, q)] >= lpSum(asignaciones_s_q)
 
-                    # Actualización de relojes para la siguiente iteración
-                    libre_staff[medico.id] = hora_fin_min
-                    libre_q[or_id] = hora_fin_min
-                    
-                    asignaciones_por_q[q_idx].pop(0)
-                    pacientes_asignados_semana.add(p_obj.id)
+    # ── 7. Resolver ───────────────────────────────────────────────────────
+    prob.solve(PULP_CBC_CMD(msg=0))
 
-            # --- PASO C: Construcción del JSON ---
-            for q_idx in range(len(operating_rooms)):
-                spec_id = int(best.chromosome[d, t, q_idx])
-                spec_name = next(s.name for s in specialties if s.id == spec_id)
-                
-                dia_dict["bloques"].append({
-                    "quirofano": operating_rooms[q_idx].name,
-                    "turno": ga.SHIFT_NAMES[t],
-                    "especialidad": spec_name,
-                    "utilizacion_porcentaje": schedule_cache.get((d,t,q_idx), {}).get("utilizacion_porcentaje", 0),
-                    "cronograma": cronogramas_finales[q_idx]
-                })
-        agenda_final["dias"].append(dia_dict)
+    # ── 8. Procesar resultados ────────────────────────────────────────────
+    z_final = value(prob.objective) or 0.0
+    all_ids: List[int] = []
+    per_or  = {b["or_idx"]: _empty_or(b["or_idx"]) for b in blocks}
 
-    # Calcular duración total de ejecución y añadir al reporte
-    elapsed = time.perf_counter() - start_time
-    agenda_final["duracion_segundos"] = round(elapsed, 3)
+    for b in active:
+        q       = b["or_idx"]
+        consumo = {s.id: 0 for s in b["surgeons"]}
+        asigs   = []
+        ids_or  = []
+        uso     = 0
 
-    with open("agenda_resultado.json", "w", encoding="utf-8") as f:
-        json.dump(agenda_final, f, indent=4, ensure_ascii=False)
+        for p in b["patients"]:
+            for s in b["surgeons"]:
+                key = (p.id, s.id, q)
+                if key in x and (value(x[key]) or 0) > 0.5:
+                    consumo[s.id] += p.estimated_duration
+                    uso           += p.estimated_duration
+                    ids_or.append(p.id)
+                    all_ids.append(p.id)
+                    asigs.append({"p": p.id, "doc": s.name})
 
-    print(f"\n✔ Éxito. Reporte generado. Pacientes totales: {len(pacientes_asignados_semana)}")
-    print(f"Tiempo de ejecución: {elapsed:.2f} s")
+        per_or[q] = {
+            "or_idx"                : q,
+            "pacientes_ids"         : ids_or,
+            "asignaciones"          : asigs,
+            "consumo_medicos"       : consumo,
+            "t_max"                 : b["t_max"],
+            "uso_tiempo"            : uso,
+            "utilizacion_porcentaje": round((uso / b["t_max"]) * 100, 2) if b["t_max"] > 0 else 0.0,
+        }
 
-if __name__ == "__main__":
-    main()
+    return {"fitness": z_final, "all_pacientes_ids": all_ids, "per_or": per_or}
+
+
+def _empty_or(or_idx: int) -> Dict:
+    return {
+        "or_idx"                : or_idx,
+        "pacientes_ids"         : [],
+        "asignaciones"          : [],
+        "consumo_medicos"       : {},
+        "t_max"                 : 0,
+        "uso_tiempo"            : 0,
+        "utilizacion_porcentaje": 0.0,
+    }
