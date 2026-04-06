@@ -16,6 +16,7 @@ def solve_mip_for_shift(
     is_morning: bool,
     alpha: float = 0.7,
     beta: float = 0.3,
+    gamma: float = 0.05,
 ) -> Dict[str, Any]:
     """
     Parámetros
@@ -85,7 +86,8 @@ def solve_mip_for_shift(
     label = f"MIP_shift_{day_idx}_{'M' if is_morning else 'T'}"
     prob  = LpProblem(label, LpMaximize)
 
-    # ── 4. Variables: x[p_id, s_id, q] ───────────────────────────────────
+    # ── 4. Variables ─────────────────────────────────────────────────────
+    # x[p_id, s_id, q] = 1 si el paciente p es operado por el cirujano s en OR q
     x: Dict = {}
     for b in active:
         q = b["or_idx"]
@@ -96,13 +98,29 @@ def solve_mip_for_shift(
     if not x:
         return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": empty_per_or}
 
+    # c[s_id, q] = 1 si el cirujano s opera al menos una vez en OR q.
+    # Usada para calcular el bonus de concentración: se premia que un cirujano
+    # acumule sus cirugías en un único quirófano en lugar de dispersarse.
+    # La penalización es proporcional al número de ORs distintos que usa:
+    # un cirujano en 1 OR aporta -gamma*1, en 2 ORs aporta -gamma*2, etc.
+    c: Dict = {
+        (s.id, b["or_idx"]): LpVariable(f"c_s{s.id}_q{b['or_idx']}", cat="Binary")
+        for b in active
+        for s in b["surgeons"]
+    }
+
     # ── 5. Objetivo ───────────────────────────────────────────────────────
     all_combos = [(p, s, b["or_idx"]) for b in active for p in b["patients"] for s in b["surgeons"]]
 
     obj_prio = lpSum(p.clinical_priority  * x[(p.id, s.id, q)] for p, s, q in all_combos)
     obj_util = lpSum(p.estimated_duration * x[(p.id, s.id, q)] for p, s, q in all_combos) / t_max_total
 
-    prob += (alpha * obj_prio) + (beta * obj_util)
+    # Bonus de concentración: restar el número total de (cirujano, OR) activos.
+    # Cuantos menos ORs distintos use un cirujano, menor es la suma → mayor fitness.
+    # gamma pequeño (0.05) garantiza que no desplace pacientes de alta prioridad.
+    obj_concentracion = lpSum(c[(s.id, b["or_idx"])] for b in active for s in b["surgeons"])
+
+    prob += (alpha * obj_prio) + (beta * obj_util) - (gamma * obj_concentracion)
 
     # ── 6. Restricciones ─────────────────────────────────────────────────
 
@@ -159,6 +177,28 @@ def solve_mip_for_shift(
             ]
             if terms:
                 prob += lpSum(terms) <= eff_cap
+
+    # R6 y R7: vinculación de c[s, q] con las asignaciones x ──────────────
+    # R6: c[s,q] solo puede ser 1 si el cirujano tiene al menos una asignación en q.
+    #     Sin esto el solver podría poner c=0 aunque haya asignaciones (evita bonus falso).
+    # R7: c[s,q] debe ser 1 si hay alguna asignación de s en q.
+    #     Sin esto el solver podría poner c=0 para minimizar la penalización
+    #     aunque el cirujano sí opere en ese quirófano (evita trampear el objetivo).
+    for b in active:
+        q = b["or_idx"]
+        for s in b["surgeons"]:
+            asignaciones_s_q = [
+                x[(p.id, s.id, q)]
+                for p in b["patients"]
+                if (p.id, s.id, q) in x
+            ]
+            if not asignaciones_s_q:
+                continue
+            n = len(asignaciones_s_q)
+            # R6: sum(x) >= c  →  si nadie asignado, c no puede ser 1
+            prob += lpSum(asignaciones_s_q) >= c[(s.id, q)]
+            # R7: n * c >= sum(x)  →  si alguien asignado, c debe ser 1
+            prob += n * c[(s.id, q)] >= lpSum(asignaciones_s_q)
 
     # ── 7. Resolver ───────────────────────────────────────────────────────
     prob.solve(PULP_CBC_CMD(msg=0))

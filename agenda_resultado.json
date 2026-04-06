@@ -1,6 +1,6 @@
 {
     "hospital": "Hospital Centenario",
-    "fitness_total": 499.2764,
+    "fitness_total": 498.2428,
     "dias": [
         {
             "nombre": "Lunes",
@@ -12,42 +12,42 @@
                     "utilizacion_porcentaje": 93.75,
                     "cronograma": [
                         {
-                            "paciente_id": 107,
+                            "paciente_id": 108,
                             "medico": "Dr. Pérez",
                             "hora_inicio": "08:00",
-                            "hora_fin": "08:30",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 111,
-                            "medico": "Dr. Pérez",
-                            "hora_inicio": "08:30",
-                            "hora_fin": "09:15",
+                            "hora_fin": "08:45",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 104,
+                            "paciente_id": 107,
+                            "medico": "Dr. Pérez",
+                            "hora_inicio": "08:45",
+                            "hora_fin": "09:15",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 121,
                             "medico": "Dr. Pérez",
                             "hora_inicio": "09:15",
                             "hora_fin": "09:45",
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 102,
+                            "paciente_id": 104,
                             "medico": "Dr. Pérez",
                             "hora_inicio": "09:45",
                             "hora_fin": "10:15",
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 108,
+                            "paciente_id": 134,
                             "medico": "Dra. Sosa",
                             "hora_inicio": "10:15",
                             "hora_fin": "11:00",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 134,
+                            "paciente_id": 111,
                             "medico": "Dra. Sosa",
                             "hora_inicio": "11:00",
                             "hora_fin": "11:45",
@@ -62,14 +62,14 @@
                     "utilizacion_porcentaje": 37.5,
                     "cronograma": [
                         {
-                            "paciente_id": 121,
+                            "paciente_id": 126,
                             "medico": "Dra. Sosa",
                             "hora_inicio": "08:00",
                             "hora_fin": "08:30",
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 126,
+                            "paciente_id": 102,
                             "medico": "Dra. Sosa",
                             "hora_inicio": "08:30",
                             "hora_fin": "09:00",
@@ -349,30 +349,29 @@
                 {
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Tarde",
-                    "especialidad": "Cirugía General",
-                    "utilizacion_porcentaje": 12.5,
-                    "cronograma": [
-                        {
-                            "paciente_id": 232,
-                            "medico": "Dr. Pérez",
-                            "hora_inicio": "13:00",
-                            "hora_fin": "13:30",
-                            "duracion": 30
-                        }
-                    ]
+                    "especialidad": "Libre",
+                    "utilizacion_porcentaje": 0.0,
+                    "cronograma": []
                 },
                 {
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Tarde",
                     "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 83.33,
+                    "utilizacion_porcentaje": 95.83,
                     "cronograma": [
                         {
                             "paciente_id": 2000,
                             "medico": "Dr. Pérez",
-                            "hora_inicio": "13:30",
-                            "hora_fin": "16:50",
+                            "hora_inicio": "13:00",
+                            "hora_fin": "16:20",
                             "duracion": 200
+                        },
+                        {
+                            "paciente_id": 113,
+                            "medico": "Dr. Pérez",
+                            "hora_inicio": "16:20",
+                            "hora_fin": "16:50",
+                            "duracion": 30
                         }
                     ]
                 },
@@ -409,7 +408,7 @@
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 238,
+                            "paciente_id": 232,
                             "medico": "Dr. Martinez",
                             "hora_inicio": "09:30",
                             "hora_fin": "10:00",
@@ -421,35 +420,35 @@
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Mañana",
                     "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 100.0,
+                    "utilizacion_porcentaje": 93.75,
                     "cronograma": [
-                        {
-                            "paciente_id": 115,
-                            "medico": "Dra. Sosa",
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:00",
-                            "duracion": 120
-                        },
                         {
                             "paciente_id": 117,
                             "medico": "Dra. Sosa",
-                            "hora_inicio": "10:00",
-                            "hora_fin": "11:30",
+                            "hora_inicio": "08:00",
+                            "hora_fin": "09:30",
                             "duracion": 90
                         },
                         {
-                            "paciente_id": 113,
+                            "paciente_id": 130,
                             "medico": "Dra. Sosa",
-                            "hora_inicio": "11:30",
-                            "hora_fin": "12:00",
-                            "duracion": 30
+                            "hora_inicio": "09:30",
+                            "hora_fin": "11:00",
+                            "duracion": 90
+                        },
+                        {
+                            "paciente_id": 116,
+                            "medico": "Dra. Sosa",
+                            "hora_inicio": "11:00",
+                            "hora_fin": "11:45",
+                            "duracion": 45
                         }
                     ]
                 },
                 {
                     "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
-                    "especialidad": "Urología",
+                    "especialidad": "Ginecología",
                     "utilizacion_porcentaje": 0.0,
                     "cronograma": []
                 },
@@ -673,7 +672,7 @@
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 207,
+                            "paciente_id": 238,
                             "medico": "Dra. Ruiz",
                             "hora_inicio": "16:30",
                             "hora_fin": "17:00",
@@ -710,6 +709,13 @@
                 {
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Mañana",
+                    "especialidad": "Traumatología",
+                    "utilizacion_porcentaje": 0.0,
+                    "cronograma": []
+                },
+                {
+                    "quirofano": "Quirófano 3 (Baja)",
+                    "turno": "Mañana",
                     "especialidad": "Cirugía General",
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
@@ -742,20 +748,13 @@
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 210,
+                            "paciente_id": 207,
                             "medico": "Dr. Martinez",
                             "hora_inicio": "11:30",
                             "hora_fin": "12:00",
                             "duracion": 30
                         }
                     ]
-                },
-                {
-                    "quirofano": "Quirófano 3 (Baja)",
-                    "turno": "Mañana",
-                    "especialidad": "Libre",
-                    "utilizacion_porcentaje": 0.0,
-                    "cronograma": []
                 },
                 {
                     "quirofano": "Quirófano 1 (Alta)",
@@ -839,5 +838,5 @@
             ]
         }
     ],
-    "duracion_segundos": 17.681
+    "duracion_segundos": 23.366
 }
