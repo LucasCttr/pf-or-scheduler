@@ -313,6 +313,7 @@ class GeneticAlgorithm:
     # ─── 2.4 LOOP PRINCIPAL ───────────────────────────────────────────────
 
     def run(self) -> Individual:
+        self.history = []
         print("▶  Inicializando población...")
         population = self.initialize_population()
         for ind in population: self.evaluate_fitness(ind)
@@ -336,6 +337,7 @@ class GeneticAlgorithm:
                         new_population.append(child)
 
             population = sorted(new_population, key=lambda x: x.fitness, reverse=True)
+            self.history.append(population[0].fitness)
             if population[0].fitness > self.best_individual.fitness:
                 self.best_individual = population[0].copy()
                 generations_no_improve = 0
