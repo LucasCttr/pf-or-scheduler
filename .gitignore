@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Pytest
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local editor/system files
+.DS_Store
+.idea/
+.vscode/
+
+# Generated outputs
+agenda_resultado.json
