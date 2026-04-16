@@ -52,24 +52,24 @@ Nivel 3: Heurística trenes   →  construye el cronograma horario minuto a minu
 └─────────────────────────┬────────────────────────────────────┘
                           │
           ┌───────────────▼──────────────┐
-          │     genetic_algorithm.py     │
-          │   Algoritmo Genético (Nivel 1)│
+          │     genetic_algorithm.py     │ 
+          │  Algoritmo Genético (Nivel 1)│
           │  Cromosoma: [días × turnos × │
-          │   quirófanos] = especialidad  │
+          │  quirófanos] = especialidad  │
           └───────────────┬──────────────┘
                           │ evalúa fitness llamando al MIP
           ┌───────────────▼──────────────┐
           │           mip.py             │
           │   Optimización MIP (Nivel 2) │
           │  Asigna pacientes y cirujanos│
-          │  por turno completo (PuLP)    │
+          │  por turno completo (PuLP)   │
           └───────────────┬──────────────┘
                           │ resultado cacheado
           ┌───────────────▼──────────────┐
           │    Heurística de Trenes      │
           │  (dentro de main.py)         │
-          │  Construye cronograma horario │
-          │  estricto por quirófano       │
+          │  Construye cronograma horario│
+          │  estricto por quirófano      │
           └──────────────────────────────┘
 ```
 

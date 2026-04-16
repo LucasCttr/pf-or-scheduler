@@ -1,3 +1,12 @@
+import sys
+import os
+from pathlib import Path
+
+# Ensure project root is on sys.path when running this file directly
+project_root = str(Path(__file__).resolve().parents[1])
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from models import GAConfig, OperatingRoom, Patient, Specialty, Staff
 
 FREE_SPECIALTY_ID = 0

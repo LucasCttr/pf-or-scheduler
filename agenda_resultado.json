@@ -602,15 +602,15 @@
                         {
                             "paciente_id": 421,
                             "medico": "Dra. García",
-                            "hora_inicio": "09:00",
-                            "hora_fin": "09:30",
+                            "hora_inicio": "10:00",
+                            "hora_fin": "10:30",
                             "duracion": 30
                         },
                         {
                             "paciente_id": 418,
                             "medico": "Dra. García",
-                            "hora_inicio": "09:30",
-                            "hora_fin": "10:15",
+                            "hora_inicio": "11:15",
+                            "hora_fin": "12:00",
                             "duracion": 45
                         }
                     ]
@@ -624,15 +624,15 @@
                         {
                             "paciente_id": 533,
                             "medico": "Dra. García",
-                            "hora_inicio": "10:15",
-                            "hora_fin": "11:15",
+                            "hora_inicio": "09:00",
+                            "hora_fin": "10:00",
                             "duracion": 60
                         },
                         {
                             "paciente_id": 502,
                             "medico": "Dra. García",
-                            "hora_inicio": "11:15",
-                            "hora_fin": "12:00",
+                            "hora_inicio": "10:30",
+                            "hora_fin": "11:15",
                             "duracion": 45
                         }
                     ]
@@ -838,5 +838,5 @@
             ]
         }
     ],
-    "duracion_segundos": 23.366
+    "duracion_segundos": 17.446
 }
