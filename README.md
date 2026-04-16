@@ -1,4 +1,4 @@
-# 🏥 Sistema Inteligente de Asignación de Agenda Quirúrgica
+# Sistema Inteligente de Asignación de Agenda Quirúrgica
 
 > Optimización de bloques operatorios semanales mediante un enfoque híbrido **Algoritmo Genético + Programación Entera Mixta (MIP)**, con reconstrucción horaria por heurística de trenes.
 
