@@ -16,7 +16,7 @@ def solve_mip_for_shift(
     is_morning: bool,
     alpha: float = 0.7,
     beta: float = 0.3,
-    delta: float = 5,
+    gamma: float = 0.05,
 ) -> Dict[str, Any]:
     """
     Parámetros
@@ -59,34 +59,26 @@ def solve_mip_for_shift(
                 surgeon_cap[s.id] = s.get_available_minutes_in_block(day_idx, is_morning)
 
     # ── 2b. Capacidad efectiva por (cirujano, quirófano) ─────────────────
-    # Cota superior individual: cuántos minutos puede aportar el cirujano s
-    # en el OR q, ignorando la cola con otros cirujanos.
-    #
-    # Por qué no simular la cola aquí:
-    #   La simulación de cola asume que TODOS los cirujanos están en el mismo OR,
-    #   lo que hace que los cirujanos con deadlines tardíos (ej. 17:00) queden con
-    #   effective=0 en TODOS los ORs (el OR ya está lleno cuando les toca).
-    #   Eso impide al MIP asignarles cualquier paciente, aunque sean los únicos
-    #   disponibles con tiempo libre.
-    #
-    # Solución: cada cirujano recibe como cota su tiempo personal disponible
-    # en el bloque, acotado por t_max del OR. R2 (cap global del cirujano) y
-    # R3 (cap del OR) garantizan que no se exceda la capacidad real.
-    # El secuenciador (sequence.py) con staff_clocks resuelve la cola exacta.
+    # Los cirujanos comparten el quirófano en serie: el que tiene límite de
+    # salida más temprano va primero. Por eso, la ventana disponible para el
+    # cirujano S en el OR Q es: t_max - tiempo_acumulado_de_cirujanos_anteriores.
+    # Esto impide que el MIP asigne más trabajo del que físicamente puede entrar.
     surgeon_or_eff_cap: Dict[tuple, int] = {}  # (s_id, or_idx) -> minutos efectivos
-
     for b in active:
         q = b["or_idx"]
-        for s in b["surgeons"]:
-            s_start, s_end = s.get_range_for_block(day_idx, is_morning)
-            if s_start == s_end == 0:
-                surgeon_or_eff_cap[(s.id, q)] = 0
-            else:
-                # Tiempo personal del cirujano, acotado por la duración del bloque
-                surgeon_or_eff_cap[(s.id, q)] = min(
-                    surgeon_cap.get(s.id, 0),
-                    b["t_max"]
-                )
+        # Ordenar cirujanos por hora de salida del bloque (ascendente = sale antes)
+        sorted_surgeons = sorted(
+            b["surgeons"],
+            key=lambda s: s.get_range_for_block(day_idx, is_morning)[1]
+        )
+        accumulated_or_time = 0
+        for s in sorted_surgeons:
+            s_cap = surgeon_cap.get(s.id, 0)
+            # Tiempo del quirófano que queda cuando le toca a este cirujano
+            or_remaining = max(0, b["t_max"] - accumulated_or_time)
+            effective = min(s_cap, or_remaining)
+            surgeon_or_eff_cap[(s.id, q)] = effective
+            accumulated_or_time += effective  # este cirujano consume su ventana efectiva
 
     t_max_total = sum(b["t_max"] for b in active)
 
@@ -107,21 +99,14 @@ def solve_mip_for_shift(
         return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": empty_per_or}
 
     # c[s_id, q] = 1 si el cirujano s opera al menos una vez en OR q.
-    # Vinculada con x a través de R6/R7.
+    # Usada para calcular el bonus de concentración: se premia que un cirujano
+    # acumule sus cirugías en un único quirófano en lugar de dispersarse.
+    # La penalización es proporcional al número de ORs distintos que usa:
+    # un cirujano en 1 OR aporta -gamma*1, en 2 ORs aporta -gamma*2, etc.
     c: Dict = {
         (s.id, b["or_idx"]): LpVariable(f"c_s{s.id}_q{b['or_idx']}", cat="Binary")
         for b in active
         for s in b["surgeons"]
-    }
-
-    # y[s_id] = 1 si el cirujano s opera en MÁS DE UN quirófano en el turno.
-    # Costo fijo delta: la dispersión solo vale la pena cuando la ganancia
-    # en prioridad o utilización supera delta de una sola vez.
-    # A diferencia de la penalización lineal (gamma por OR), aquí el solver
-    # NO acepta dispersarse por un solo paciente extra de prioridad baja.
-    y: Dict = {
-        s_id: LpVariable(f"y_s{s_id}", cat="Binary")
-        for s_id in surgeon_cap
     }
 
     # ── 5. Objetivo ───────────────────────────────────────────────────────
@@ -130,12 +115,12 @@ def solve_mip_for_shift(
     obj_prio = lpSum(p.clinical_priority  * x[(p.id, s.id, q)] for p, s, q in all_combos)
     obj_util = lpSum(p.estimated_duration * x[(p.id, s.id, q)] for p, s, q in all_combos) / t_max_total
 
-    # Penalización fija por dispersarse: cada cirujano que opera en 2+ ORs
-    # resta delta al objetivo. Calibración: delta > alpha * prioridad_típica
-    # asegura que una sola cirugía marginal no justifique la dispersión.
-    obj_dispersion = lpSum(y[s_id] for s_id in surgeon_cap)
+    # Bonus de concentración: restar el número total de (cirujano, OR) activos.
+    # Cuantos menos ORs distintos use un cirujano, menor es la suma → mayor fitness.
+    # gamma pequeño (0.05) garantiza que no desplace pacientes de alta prioridad.
+    obj_concentracion = lpSum(c[(s.id, b["or_idx"])] for b in active for s in b["surgeons"])
 
-    prob += (alpha * obj_prio) + (beta * obj_util) - (delta * obj_dispersion)
+    prob += (alpha * obj_prio) + (beta * obj_util) - (gamma * obj_concentracion)
 
     # ── 6. Restricciones ─────────────────────────────────────────────────
 
@@ -179,10 +164,8 @@ def solve_mip_for_shift(
                     if s.id != forced and (p.id, s.id, q) in x:
                         prob += x[(p.id, s.id, q)] == 0
 
-    # R5: capacidad efectiva por (cirujano, quirófano).
-    # Usa los valores calculados con la simulación del reloj (sección 2b),
-    # que replican exactamente la lógica del secuenciador. Esto garantiza
-    # que el MIP solo asigna lo que el secuenciador puede programar.
+    # R5: capacidad efectiva por (cirujano, quirófano) — evita sobrepasar el límite
+    # de salida del cirujano considerando el tiempo de cola del quirófano.
     for b in active:
         q = b["or_idx"]
         for s in b["surgeons"]:
@@ -216,15 +199,6 @@ def solve_mip_for_shift(
             prob += lpSum(asignaciones_s_q) >= c[(s.id, q)]
             # R7: n * c >= sum(x)  →  si alguien asignado, c debe ser 1
             prob += n * c[(s.id, q)] >= lpSum(asignaciones_s_q)
-
-    # R8: vincula y[s] con c[s,q] — y=1 cuando el cirujano opera en 2+ ORs.
-    # sum(c[s,q] para todo q) - 1 <= (n_ors - 1) * y[s]
-    #   → si 1 OR activo:  0 <= (n-1)*y  → y puede ser 0 (sin penalidad)
-    #   → si 2+ ORs activos: ≥1 <= (n-1)*y → y debe ser 1 (paga delta)
-    for s_id in surgeon_cap:
-        c_vars = [c[(s_id, b["or_idx"])] for b in active if (s_id, b["or_idx"]) in c]
-        if len(c_vars) > 1:
-            prob += lpSum(c_vars) - 1 <= (len(c_vars) - 1) * y[s_id]
 
     # ── 7. Resolver ───────────────────────────────────────────────────────
     prob.solve(PULP_CBC_CMD(msg=0))
