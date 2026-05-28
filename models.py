@@ -2,7 +2,7 @@
 models.py — Estructuras de datos del dominio.
 """
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -39,10 +39,6 @@ class Patient:
     required_roles: List[str] = field(default_factory=list)
     # ID del médico asignado (opcional)
     forced_surgeon_id: Optional[int] = None
-
-from dataclasses import dataclass
-from typing import List, Dict, Tuple
-
 @dataclass
 class Staff:
     id: int
@@ -90,6 +86,8 @@ class GAConfig:
     n_days: int = 5       # Lunes a Viernes
     n_shifts: int = 2     # 0 = Mañana, 1 = Tarde
     block_duration_min: int = 240   # minutos disponibles por bloque 
+    slot_size_min: int = 15  # tamaño mínimo del slot en minutos
+    parallel_workers: int = 16  # 1 = secuencial, >1 = evaluación paralela por procesos
 
     # Penalizaciones en el fitness global
     penalty_below_min_quota: float = 50.0   # por cada bloque faltante bajo el mínimo

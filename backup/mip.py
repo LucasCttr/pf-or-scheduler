@@ -1,14 +1,5 @@
-"""
-mip.py — Nivel 3: MIP por turno completo.
-
-solve_mip_for_shift resuelve un único problema de optimización por turno
-que cubre todos los quirófanos activos. La restricción de capacidad del
-cirujano aplica sobre la suma de todos los ORs del turno, eliminando la
-necesidad de rastrear un monedero externo.
-"""
 from pulp import LpProblem, LpVariable, lpSum, LpMaximize, value, PULP_CBC_CMD
 from typing import List, Dict, Any
-
 
 def solve_mip_for_shift(
     blocks: List[Dict],
@@ -16,235 +7,140 @@ def solve_mip_for_shift(
     is_morning: bool,
     alpha: float = 0.7,
     beta: float = 0.3,
-    gamma: float = 0.05,
+    delta: float = 5,
+    slot_size: int = 30
 ) -> Dict[str, Any]:
-    """
-    Parámetros
-    ----------
-    blocks : lista de dicts, uno por quirófano en el turno:
-        {
-            "or_idx"   : int,
-            "spec_id"  : int,
-            "patients" : List[Patient],
-            "surgeons" : List[Staff],   # ya filtrados: specialty_id correcto y cap > 0
-            "t_max"    : int,           # minutos físicos del quirófano en este turno
-        }
-
-    Retorna
-    -------
-    {
-        "fitness"          : float,
-        "all_pacientes_ids": List[int],
-        "per_or"           : { or_idx: { pacientes_ids, asignaciones,
-                                          consumo_medicos, t_max,
-                                          uso_tiempo, utilizacion_porcentaje } }
-    }
-    """
-    # ── 1. Filtrar bloques activos ────────────────────────────────────────
-    active = [
-        b for b in blocks
-        if b["spec_id"] > 0 and b["surgeons"] and b["patients"] and b["t_max"] > 0
-    ]
-
+    # 1. Filtrar bloques con cirujanos y pacientes[cite: 1]
+    active = [b for b in blocks if b["spec_id"] > 0 and b["surgeons"] and b["patients"] and b["t_max"] > 0]
     empty_per_or = {b["or_idx"]: _empty_or(b["or_idx"]) for b in blocks}
-
     if not active:
         return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": empty_per_or}
 
-    # ── 2. Capacidad por cirujano (global sobre el turno completo) ─────────
-    surgeon_cap: Dict[int, int] = {}
-    for b in active:
-        for s in b["surgeons"]:
-            if s.id not in surgeon_cap:
-                surgeon_cap[s.id] = s.get_available_minutes_in_block(day_idx, is_morning)
+    # 2. Configuración de tiempo[cite: 2, 5]
+    start_shift = 480 if is_morning else 780
+    t_max_turno = max(b["t_max"] for b in active)
+    slots = list(range(start_shift, start_shift + t_max_turno, slot_size))
 
-    # ── 2b. Capacidad efectiva por (cirujano, quirófano) ─────────────────
-    # Los cirujanos comparten el quirófano en serie: el que tiene límite de
-    # salida más temprano va primero. Por eso, la ventana disponible para el
-    # cirujano S en el OR Q es: t_max - tiempo_acumulado_de_cirujanos_anteriores.
-    # Esto impide que el MIP asigne más trabajo del que físicamente puede entrar.
-    surgeon_or_eff_cap: Dict[tuple, int] = {}  # (s_id, or_idx) -> minutos efectivos
-    for b in active:
-        q = b["or_idx"]
-        # Ordenar cirujanos por hora de salida del bloque (ascendente = sale antes)
-        sorted_surgeons = sorted(
-            b["surgeons"],
-            key=lambda s: s.get_range_for_block(day_idx, is_morning)[1]
-        )
-        accumulated_or_time = 0
-        for s in sorted_surgeons:
-            s_cap = surgeon_cap.get(s.id, 0)
-            # Tiempo del quirófano que queda cuando le toca a este cirujano
-            or_remaining = max(0, b["t_max"] - accumulated_or_time)
-            effective = min(s_cap, or_remaining)
-            surgeon_or_eff_cap[(s.id, q)] = effective
-            accumulated_or_time += effective  # este cirujano consume su ventana efectiva
+    prob = LpProblem(f"MIP_Slots_{day_idx}_{'M' if is_morning else 'T'}", LpMaximize)
 
-    t_max_total = sum(b["t_max"] for b in active)
-
-    # ── 3. Problema ───────────────────────────────────────────────────────
-    label = f"MIP_shift_{day_idx}_{'M' if is_morning else 'T'}"
-    prob  = LpProblem(label, LpMaximize)
-
-    # ── 4. Variables ─────────────────────────────────────────────────────
-    # x[p_id, s_id, q] = 1 si el paciente p es operado por el cirujano s en OR q
-    x: Dict = {}
+    # 3. Variables de Decisión[cite: 1]
+    x = {}
     for b in active:
         q = b["or_idx"]
         for p in b["patients"]:
             for s in b["surgeons"]:
-                x[(p.id, s.id, q)] = LpVariable(f"x_p{p.id}_s{s.id}_q{q}", cat="Binary")
+                s_start, s_end = s.get_range_for_block(day_idx, is_morning)
+                for t in slots:
+                    # La cirugía debe terminar antes del fin del turno del médico
+                    if t >= s_start and (t + p.estimated_duration) <= s_end:
+                        x[(p.id, s.id, q, t)] = LpVariable(f"x_p{p.id}_s{s.id}_q{q}_t{t}", cat="Binary")
 
     if not x:
         return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": empty_per_or}
 
-    # c[s_id, q] = 1 si el cirujano s opera al menos una vez en OR q.
-    # Usada para calcular el bonus de concentración: se premia que un cirujano
-    # acumule sus cirugías en un único quirófano en lugar de dispersarse.
-    # La penalización es proporcional al número de ORs distintos que usa:
-    # un cirujano en 1 OR aporta -gamma*1, en 2 ORs aporta -gamma*2, etc.
-    c: Dict = {
-        (s.id, b["or_idx"]): LpVariable(f"c_s{s.id}_q{b['or_idx']}", cat="Binary")
-        for b in active
-        for s in b["surgeons"]
-    }
+    # Variables de dispersión solo para cirujanos con variables x factibles[cite: 1]
+    s_ids_active = {k[1] for k in x.keys()}
+    sid_q_pairs = {(sid, q) for (_, sid, q, _) in x.keys()}
+    c = {(sid, q): LpVariable(f"c_s{sid}_q{q}", cat="Binary") for (sid, q) in sid_q_pairs}
+    y = {sid: LpVariable(f"y_s{sid}", cat="Binary") for sid in s_ids_active}
 
-    # ── 5. Objetivo ───────────────────────────────────────────────────────
-    all_combos = [(p, s, b["or_idx"]) for b in active for p in b["patients"] for s in b["surgeons"]]
-
-    obj_prio = lpSum(p.clinical_priority  * x[(p.id, s.id, q)] for p, s, q in all_combos)
-    obj_util = lpSum(p.estimated_duration * x[(p.id, s.id, q)] for p, s, q in all_combos) / t_max_total
-
-    # Bonus de concentración: restar el número total de (cirujano, OR) activos.
-    # Cuantos menos ORs distintos use un cirujano, menor es la suma → mayor fitness.
-    # gamma pequeño (0.05) garantiza que no desplace pacientes de alta prioridad.
-    obj_concentracion = lpSum(c[(s.id, b["or_idx"])] for b in active for s in b["surgeons"])
-
-    prob += (alpha * obj_prio) + (beta * obj_util) - (gamma * obj_concentracion)
-
-    # ── 6. Restricciones ─────────────────────────────────────────────────
-
-    # R1: cada paciente se opera como máximo una vez en el turno (en cualquier OR)
-    all_patient_ids = {p.id for b in active for p in b["patients"]}
-    for p_id in all_patient_ids:
-        terms = [v for (pid, sid, q), v in x.items() if pid == p_id]
-        if terms:
-            prob += lpSum(terms) <= 1
-
-    # R2: cada cirujano no supera su capacidad total en el turno
-    #     la restricción cruza todos los ORs donde ese cirujano aparece
-    for s_id, cap in surgeon_cap.items():
-        terms = [
-            p.estimated_duration * x[(p.id, s_id, b["or_idx"])]
-            for b in active
-            for p in b["patients"]
-            if (p.id, s_id, b["or_idx"]) in x
-        ]
-        if terms:
-            prob += lpSum(terms) <= cap
-
-    # R3: cada quirófano no supera su capacidad física
+    # Precalculate patient data to avoid repeated lookups
+    patient_duration: Dict[int, int] = {}
+    patient_priority: Dict[int, float] = {}
+    patient_by_id: Dict[int, Any] = {}
+    surgeon_by_id: Dict[int, Any] = {}
     for b in active:
-        q     = b["or_idx"]
-        terms = [
-            p.estimated_duration * x[(p.id, s.id, q)]
-            for p in b["patients"]
-            for s in b["surgeons"]
-        ]
-        if terms:
-            prob += lpSum(terms) <= b["t_max"]
-
-    # R4: modelo híbrido — si el paciente tiene médico forzado, nadie más lo opera
-    for b in active:
-        q = b["or_idx"]
         for p in b["patients"]:
-            forced = getattr(p, "forced_surgeon_id", None)
-            if forced is not None:
-                for s in b["surgeons"]:
-                    if s.id != forced and (p.id, s.id, q) in x:
-                        prob += x[(p.id, s.id, q)] == 0
-
-    # R5: capacidad efectiva por (cirujano, quirófano) — evita sobrepasar el límite
-    # de salida del cirujano considerando el tiempo de cola del quirófano.
-    for b in active:
-        q = b["or_idx"]
+            patient_duration[p.id] = p.estimated_duration
+            patient_priority[p.id] = p.clinical_priority
+            patient_by_id[p.id] = p
         for s in b["surgeons"]:
-            eff_cap = surgeon_or_eff_cap.get((s.id, q), 0)
-            terms = [
-                p.estimated_duration * x[(p.id, s.id, q)]
-                for p in b["patients"]
-                if (p.id, s.id, q) in x
-            ]
-            if terms:
-                prob += lpSum(terms) <= eff_cap
+            surgeon_by_id[s.id] = s
 
-    # R6 y R7: vinculación de c[s, q] con las asignaciones x ──────────────
-    # R6: c[s,q] solo puede ser 1 si el cirujano tiene al menos una asignación en q.
-    #     Sin esto el solver podría poner c=0 aunque haya asignaciones (evita bonus falso).
-    # R7: c[s,q] debe ser 1 si hay alguna asignación de s en q.
-    #     Sin esto el solver podría poner c=0 para minimizar la penalización
-    #     aunque el cirujano sí opere en ese quirófano (evita trampear el objetivo).
-    for b in active:
-        q = b["or_idx"]
-        for s in b["surgeons"]:
-            asignaciones_s_q = [
-                x[(p.id, s.id, q)]
-                for p in b["patients"]
-                if (p.id, s.id, q) in x
-            ]
-            if not asignaciones_s_q:
-                continue
-            n = len(asignaciones_s_q)
-            # R6: sum(x) >= c  →  si nadie asignado, c no puede ser 1
-            prob += lpSum(asignaciones_s_q) >= c[(s.id, q)]
-            # R7: n * c >= sum(x)  →  si alguien asignado, c debe ser 1
-            prob += n * c[(s.id, q)] >= lpSum(asignaciones_s_q)
+    # 4. Función Objetivo (optimized)
+    obj_prio = lpSum(patient_priority[k[0]] * x[k] for k in x.keys())
+    obj_util = (lpSum(patient_duration[k[0]] * x[k] for k in x.keys())) / (t_max_turno * len(active)) if (t_max_turno * len(active)) > 0 else 0
+    prob += (alpha * obj_prio) + (beta * obj_util) - (delta * lpSum(y.values()))
 
-    # ── 7. Resolver ───────────────────────────────────────────────────────
-    prob.solve(PULP_CBC_CMD(msg=0))
+    # 5. Restricciones[cite: 1, 2]
+    # R1: Un solo procedimiento por paciente
+    for p_id in {k[0] for k in x.keys()}:
+        prob += lpSum(v for k, v in x.items() if k[0] == p_id) <= 1
 
-    # ── 8. Procesar resultados ────────────────────────────────────────────
-    z_final = value(prob.objective) or 0.0
-    all_ids: List[int] = []
-    per_or  = {b["or_idx"]: _empty_or(b["or_idx"]) for b in blocks}
+    # R2: No solapamiento en Quirófano[cite: 1]
+    x_by_or_time: Dict[tuple, list] = {}
+    for (p_id, s_id, or_idx, t_start), var in x.items():
+        p_duration = patient_duration[p_id]
+        for slot in slots:
+            if t_start <= slot < t_start + p_duration:
+                key = (or_idx, slot)
+                if key not in x_by_or_time:
+                    x_by_or_time[key] = []
+                x_by_or_time[key].append(var)
+    
+    for conflicting_vars in x_by_or_time.values():
+        if conflicting_vars:
+            prob += lpSum(conflicting_vars) <= 1
 
-    for b in active:
-        q       = b["or_idx"]
-        consumo = {s.id: 0 for s in b["surgeons"]}
-        asigs   = []
-        ids_or  = []
-        uso     = 0
+    # R3: No solapamiento por Médico[cite: 1]
+    x_by_surgeon_time: Dict[tuple, list] = {}
+    for (p_id, s_id, or_idx, t_start), var in x.items():
+        p_duration = patient_duration[p_id]
+        for slot in slots:
+            if t_start <= slot < t_start + p_duration:
+                key = (s_id, slot)
+                if key not in x_by_surgeon_time:
+                    x_by_surgeon_time[key] = []
+                x_by_surgeon_time[key].append(var)
+    
+    for conflicting_vars in x_by_surgeon_time.values():
+        if conflicting_vars:
+            prob += lpSum(conflicting_vars) <= 1
 
-        for p in b["patients"]:
-            for s in b["surgeons"]:
-                key = (p.id, s.id, q)
-                if key in x and (value(x[key]) or 0) > 0.5:
-                    consumo[s.id] += p.estimated_duration
-                    uso           += p.estimated_duration
-                    ids_or.append(p.id)
-                    all_ids.append(p.id)
-                    asigs.append({"p": p.id, "doc": s.name})
+    # R4: Lógica de Dispersión[cite: 1]
+    for sid in s_ids_active:
+        qs_sid = {k[2] for k in x.keys() if k[1] == sid}
+        for q_idx in qs_sid:
+            asigs = [v for k, v in x.items() if k[1] == sid and k[2] == q_idx]
+            if asigs:
+                prob += lpSum(asigs) >= c[(sid, q_idx)]
+                prob += len(asigs) * c[(sid, q_idx)] >= lpSum(asigs)
+        
+        c_vars = [c[(sid, q_idx)] for q_idx in qs_sid]
+        if len(c_vars) > 1:
+            prob += lpSum(c_vars) - 1 <= (len(c_vars) - 1) * y[sid]
 
-        per_or[q] = {
-            "or_idx"                : q,
-            "pacientes_ids"         : ids_or,
-            "asignaciones"          : asigs,
-            "consumo_medicos"       : consumo,
-            "t_max"                 : b["t_max"],
-            "uso_tiempo"            : uso,
-            "utilizacion_porcentaje": round((uso / b["t_max"]) * 100, 2) if b["t_max"] > 0 else 0.0,
-        }
+    prob.solve(PULP_CBC_CMD(msg=0, timeLimit=10))
 
-    return {"fitness": z_final, "all_pacientes_ids": all_ids, "per_or": per_or}
+    # 6. Resultados
+    res_per_or = {b["or_idx"]: _empty_or(b["or_idx"]) for b in blocks}
+    all_pids = []
+    if value(prob.objective):
+        for (pid, sid, q, t), var in x.items():
+            if value(var) > 0.5:
+                p = patient_by_id[pid]
+                s_obj = surgeon_by_id[sid]
+                t_fin = t + p.estimated_duration
+                all_pids.append(pid)
+                res_per_or[q]["pacientes_ids"].append(pid)
+                res_per_or[q]["uso_tiempo"] += p.estimated_duration
+                res_per_or[q]["asignaciones"].append({
+                    "p": pid,
+                    "doc": s_obj.name,
+                    "t_inicio": t,
+                    "t_fin": t_fin,
+                    "slot_inicio": t // slot_size,
+                    "hora_inicio": f"{t // 60:02d}:{t % 60:02d}",
+                    "hora_fin": f"{t_fin // 60:02d}:{t_fin % 60:02d}",
+                    "duracion": p.estimated_duration,
+                })
 
+    for q, data in res_per_or.items():
+        t_m = next((b["t_max"] for b in blocks if b["or_idx"] == q), 0)
+        data["t_max"] = t_m
+        data["utilizacion_porcentaje"] = round((data["uso_tiempo"] / t_m * 100), 2) if t_m > 0 else 0
+    
+    return {"fitness": value(prob.objective) or 0.0, "all_pacientes_ids": all_pids, "per_or": res_per_or}
 
-def _empty_or(or_idx: int) -> Dict:
-    return {
-        "or_idx"                : or_idx,
-        "pacientes_ids"         : [],
-        "asignaciones"          : [],
-        "consumo_medicos"       : {},
-        "t_max"                 : 0,
-        "uso_tiempo"            : 0,
-        "utilizacion_porcentaje": 0.0,
-    }
+def _empty_or(idx):
+    return {"or_idx": idx, "pacientes_ids": [], "asignaciones": [], "uso_tiempo": 0, "utilizacion_porcentaje": 0.0}

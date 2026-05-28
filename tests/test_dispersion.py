@@ -17,7 +17,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from models import Patient, Staff, OperatingRoom
-from mip import solve_mip_for_shift
+from backup.mip import solve_mip_for_shift
 from sequence import sequence_shift
 
 QUIROFANOS = [

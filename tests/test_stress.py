@@ -7,7 +7,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from models import Staff, OperatingRoom, Patient, Specialty, GAConfig
-from mip import solve_mip_for_shift
+from backup.mip import solve_mip_for_shift
 from sequence import sequence_shift
 
 def test_escenario_complejo():
@@ -22,9 +22,9 @@ def test_escenario_complejo():
     # Bloque mañana: 08:00 (480) a 12:00 (720)
     staff = [
         # Staff(id=1, name="Dr. Temprano", role="cirujano", specialties_ids=[1], availability_hours={day: (480, 600) for day in range(5)}),
-        Staff(id=2, name="Dra. Tarde", role="cirujano", specialties_ids=[1], availability_hours={day: (600, 720) for day in range(5)}),
+        Staff(id=2, name="Dra. Tarde", role="cirujano", specialties_ids=[1], availability_hours={day: (480, 720) for day in range(5)}),
         # Staff(id=3, name="Dr. TodoElDia", role="cirujano", specialties_ids=[1], availability_hours={day: (480, 720) for day in range(5)}),
-        Staff(id=4, name="Dra. Corta", role="cirujano", specialties_ids=[1], availability_hours={day: (540, 660) for day in range(5)}),
+        Staff(id=4, name="Dra. Corta", role="cirujano", specialties_ids=[1], availability_hours={day: (480, 660) for day in range(5)}),
         Staff(id=5, name="Dr. Rotante", role="cirujano", specialties_ids=[1], availability_hours={day: (480, 720) for day in range(5)}),
         Staff(id=3, name="Dr. asd", role="cirujano", specialties_ids=[1], availability_hours={day: (480, 540) for day in range(5)}),
     ]
