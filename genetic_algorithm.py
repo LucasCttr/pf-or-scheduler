@@ -176,6 +176,30 @@ class GeneticAlgorithm:
             })
         return blocks
 
+    def _get_shift_result(self, blocks: List[Dict], d: int, is_morning: bool) -> Optional[Dict]:
+        """Obtener resultado del MIP para un turno usando la caché.
+
+        Si no existe en caché, resuelve el MIP y almacena el resultado.
+        Devuelve None si no debe ejecutarse (por ejemplo, no hay cirujanos/pacientes).
+        """
+        if not any(b["surgeons"] and b["patients"] for b in blocks):
+            return None
+
+        key = self._make_shift_cache_key(blocks, d, is_morning, self.cfg.alpha, self.cfg.beta, self.slot_size)
+
+        with self._cache_lock:
+            result = self._mip_cache.get(key)
+            if result is not None:
+                self._cache_hits += 1
+                return result
+
+        # compute without holding lock
+        result = solve_mip_for_shift(blocks, d, is_morning, self.cfg.alpha, self.cfg.beta, slot_size=self.slot_size)
+        with self._cache_lock:
+            # store result for future evaluations
+            self._mip_cache[key] = result
+        return result
+
     # ─── 2.3 EVALUACIÓN DE FITNESS ────────────────────────────────────────
 
     @staticmethod
@@ -202,19 +226,8 @@ class GeneticAlgorithm:
                 blocks = self._build_shift_blocks(chrom, d, t, is_morning, pacientes_operados)
                 
                 # Validación Crítica: Solo llamar al MIP si hay cirujanos y pacientes candidatos
-                if any(b["surgeons"] and b["patients"] for b in blocks):
-                    key = self._make_shift_cache_key(blocks, d, is_morning, self.cfg.alpha, self.cfg.beta, self.slot_size)
-                    # Check MIP cache under lock; if missing, compute without holding lock
-                    with self._cache_lock:
-                        result = self._mip_cache.get(key)
-                        if result is not None:
-                            self._cache_hits += 1
-                    if result is None:
-                        result = solve_mip_for_shift(blocks, d, is_morning, self.cfg.alpha, self.cfg.beta, slot_size=self.slot_size)
-                        with self._cache_lock:
-                            # store result for future evaluations
-                            self._mip_cache[key] = result
-                    
+                result = self._get_shift_result(blocks, d, is_morning)
+                if result is not None:
                     total_z += result["fitness"]
                     pacientes_operados.update(result["all_pacientes_ids"])
                 
@@ -237,16 +250,15 @@ class GeneticAlgorithm:
                 blocks = self._build_shift_blocks(chrom, d, t, is_morning, pacientes_operados)
                 
                 if any(b["surgeons"] and b["patients"] for b in blocks):
-                    key = self._make_shift_cache_key(blocks, d, is_morning, self.cfg.alpha, self.cfg.beta, self.slot_size)
-                    if key in self._mip_cache:
-                        result = self._mip_cache[key]
+                    result = self._get_shift_result(blocks, d, is_morning)
+                    # result no será None aquí, pero comprobamos por seguridad
+                    if result is None:
+                        for q in range(self.n_ors):
+                            cache[(d, t, q)] = {"pacientes_ids": [], "asignaciones": [], "uso_tiempo": 0, "utilizacion_porcentaje": 0}
                     else:
-                        result = solve_mip_for_shift(blocks, d, is_morning, self.cfg.alpha, self.cfg.beta, slot_size=self.slot_size)
-                        self._mip_cache[key] = result
-                    
-                    pacientes_operados.update(result["all_pacientes_ids"])
-                    for q in range(self.n_ors):
-                        cache[(d, t, q)] = result["per_or"].get(q)
+                        pacientes_operados.update(result["all_pacientes_ids"])
+                        for q in range(self.n_ors):
+                            cache[(d, t, q)] = result["per_or"].get(q)
                 else:
                     # Rellenar con datos vacíos si no hubo ejecución MIP
                     for q in range(self.n_ors):

@@ -87,7 +87,7 @@ class GAConfig:
     n_shifts: int = 2     # 0 = Mañana, 1 = Tarde
     block_duration_min: int = 240   # minutos disponibles por bloque 
     slot_size_min: int = 15  # tamaño mínimo del slot en minutos
-    parallel_workers: int = 16  # 1 = secuencial, >1 = evaluación paralela por procesos
+    parallel_workers: int = 1  # 1 = secuencial, >1 = evaluación paralela por procesos
 
     # Penalizaciones en el fitness global
     penalty_below_min_quota: float = 50.0   # por cada bloque faltante bajo el mínimo

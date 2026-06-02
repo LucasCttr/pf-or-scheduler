@@ -36,6 +36,14 @@ def build_staff():
         Staff(id=8,  name="Dr. Lopez",     role="cirujano", specialties_ids=[3],   availability_hours={0:(780,1020), 2:(780,1020)}),
         Staff(id=9,  name="Dra. García",   role="cirujano", specialties_ids=[4,5], availability_hours={1:(480,720),  3:(480,720)}),
         Staff(id=10, name="Dr. Rodríguez", role="cirujano", specialties_ids=[4,5], availability_hours={2:(780,1020), 4:(780,1020)}),
+        
+        # --- Nuevos integrantes del Staff ---
+        Staff(id=11, name="Dr. Morales",   role="cirujano", specialties_ids=[6],   availability_hours={0:(480,720),  3:(480,1020)}),
+        Staff(id=12, name="Dra. Herrera",  role="cirujano", specialties_ids=[6,7], availability_hours={1:(480,720),  4:(480,720)}),
+        Staff(id=13, name="Dr. Castro",    role="cirujano", specialties_ids=[7],   availability_hours={2:(780,1020), 3:(780,1020)}),
+        Staff(id=14, name="Dra. Mendez",   role="cirujano", specialties_ids=[8],   availability_hours={0:(480,720),  4:(480,1020)}),
+        Staff(id=15, name="Dr. Silva",     role="cirujano", specialties_ids=[2,8], availability_hours={1:(780,1020), 2:(480,720)}),
+        Staff(id=16, name="Dra. Flores",   role="cirujano", specialties_ids=[1,3], availability_hours={0:(780,1020), 4:(480,720)})
     ]
 
 def build_operating_rooms():
@@ -53,13 +61,18 @@ def build_specialties():
         Specialty(id=3, name="Neurología",      compatible_or_types=["alta_complejidad"],                                   min_blocks=2, max_blocks=4),
         Specialty(id=4, name="Urología",        compatible_or_types=["media_complejidad","baja_complejidad"],               min_blocks=2, max_blocks=5),
         Specialty(id=5, name="Ginecología",     compatible_or_types=["media_complejidad","baja_complejidad"],               min_blocks=2, max_blocks=5),
+        
+        # --- Nuevas Especialidades ---
+        Specialty(id=6, name="Cardiología",     compatible_or_types=["alta_complejidad","media_complejidad"],               min_blocks=3, max_blocks=6),
+        Specialty(id=7, name="Otorrinolaringología", compatible_or_types=["media_complejidad","baja_complejidad"],          min_blocks=2, max_blocks=4),
+        Specialty(id=8, name="Oftalmología",    compatible_or_types=["baja_complejidad"],                                   min_blocks=2, max_blocks=6)
     ]
 
 def default_config():
-    return GAConfig(population_size=50, max_generations=50, convergence_patience=5,
-                    mutation_rate=0.10, crossover_rate=0.85, tournament_size=5,
+    return GAConfig(population_size=50, max_generations=50, convergence_patience=7,
+                    mutation_rate=0.10, crossover_rate=0.85, tournament_size=10,
                     elite_count=2, n_days=5, n_shifts=2, block_duration_min=240,
-                    slot_size_min=15, penalty_below_min_quota=50.0, penalty_above_max_quota=20.0)
+                    slot_size_min=15, penalty_below_min_quota=50.0, penalty_above_max_quota=20.0, parallel_workers=24)
 
 def reconstruct_agenda(ga, best, patients_by_specialty, specialties, operating_rooms, staff_list, config):
     print("\n▶  Leyendo cronograma desde MIP-Slots...")

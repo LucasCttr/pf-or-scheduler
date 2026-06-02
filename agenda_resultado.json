@@ -1,6 +1,6 @@
 {
     "hospital": "Hospital Centenario",
-    "fitness_total": 540.105,
+    "fitness_total": 533.7515,
     "slot_size_min": 15,
     "dias": [
         {
@@ -10,23 +10,23 @@
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Mañana",
                     "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 93.75,
+                    "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 126,
+                            "paciente_id": 134,
                             "medico": "Dra. Sosa",
                             "slot_inicio": 0,
                             "hora_inicio": "08:00",
-                            "hora_fin": "08:30",
-                            "duracion": 30
+                            "hora_fin": "08:45",
+                            "duracion": 45
                         },
                         {
-                            "paciente_id": 138,
+                            "paciente_id": 112,
                             "medico": "Dra. Sosa",
-                            "slot_inicio": 2,
-                            "hora_inicio": "08:30",
+                            "slot_inicio": 3,
+                            "hora_inicio": "08:45",
                             "hora_fin": "09:15",
-                            "duracion": 45
+                            "duracion": 30
                         },
                         {
                             "paciente_id": 107,
@@ -37,23 +37,23 @@
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 108,
+                            "paciente_id": 111,
                             "medico": "Dra. Sosa",
-                            "slot_inicio": 8,
-                            "hora_inicio": "10:00",
-                            "hora_fin": "10:45",
+                            "slot_inicio": 7,
+                            "hora_inicio": "09:45",
+                            "hora_fin": "10:30",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 112,
+                            "paciente_id": 105,
                             "medico": "Dra. Sosa",
-                            "slot_inicio": 11,
-                            "hora_inicio": "10:45",
+                            "slot_inicio": 10,
+                            "hora_inicio": "10:30",
                             "hora_fin": "11:15",
-                            "duracion": 30
+                            "duracion": 45
                         },
                         {
-                            "paciente_id": 105,
+                            "paciente_id": 126,
                             "medico": "Dra. Sosa",
                             "slot_inicio": 13,
                             "hora_inicio": "11:15",
@@ -69,7 +69,7 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 134,
+                            "paciente_id": 108,
                             "medico": "Dr. Pérez",
                             "slot_inicio": 0,
                             "hora_inicio": "08:00",
@@ -85,7 +85,7 @@
                             "duracion": 60
                         },
                         {
-                            "paciente_id": 111,
+                            "paciente_id": 137,
                             "medico": "Dr. Pérez",
                             "slot_inicio": 7,
                             "hora_inicio": "09:45",
@@ -93,7 +93,7 @@
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 121,
+                            "paciente_id": 104,
                             "medico": "Dra. Carter",
                             "slot_inicio": 10,
                             "hora_inicio": "10:30",
@@ -109,7 +109,7 @@
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 104,
+                            "paciente_id": 120,
                             "medico": "Dra. Carter",
                             "slot_inicio": 14,
                             "hora_inicio": "11:30",
@@ -125,47 +125,47 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 400,
+                            "paciente_id": 403,
                             "medico": "Dr. Gomez",
                             "slot_inicio": 0,
                             "hora_inicio": "08:00",
-                            "hora_fin": "08:30",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 405,
-                            "medico": "Dr. Gomez",
-                            "slot_inicio": 2,
-                            "hora_inicio": "08:30",
-                            "hora_fin": "09:00",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 404,
-                            "medico": "Dr. Gomez",
-                            "slot_inicio": 4,
-                            "hora_inicio": "09:00",
-                            "hora_fin": "09:45",
+                            "hora_fin": "08:45",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 403,
+                            "paciente_id": 417,
                             "medico": "Dr. Gomez",
-                            "slot_inicio": 7,
-                            "hora_inicio": "09:45",
-                            "hora_fin": "10:30",
+                            "slot_inicio": 3,
+                            "hora_inicio": "08:45",
+                            "hora_fin": "09:30",
                             "duracion": 45
                         },
                         {
                             "paciente_id": 427,
                             "medico": "Dr. Gomez",
-                            "slot_inicio": 10,
-                            "hora_inicio": "10:30",
-                            "hora_fin": "11:15",
+                            "slot_inicio": 6,
+                            "hora_inicio": "09:30",
+                            "hora_fin": "10:15",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 417,
+                            "paciente_id": 400,
+                            "medico": "Dr. Gomez",
+                            "slot_inicio": 9,
+                            "hora_inicio": "10:15",
+                            "hora_fin": "10:45",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 405,
+                            "medico": "Dr. Gomez",
+                            "slot_inicio": 11,
+                            "hora_inicio": "10:45",
+                            "hora_fin": "11:15",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 404,
                             "medico": "Dr. Gomez",
                             "slot_inicio": 13,
                             "hora_inicio": "11:15",
@@ -177,56 +177,40 @@
                 {
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Tarde",
-                    "especialidad": "Neurología",
+                    "especialidad": "Traumatología",
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 318,
-                            "medico": "Dr. Lopez",
+                            "paciente_id": 125,
+                            "medico": "Dra. Flores",
                             "slot_inicio": 0,
                             "hora_inicio": "13:00",
                             "hora_fin": "13:45",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 317,
-                            "medico": "Dr. Lopez",
+                            "paciente_id": 123,
+                            "medico": "Dra. Flores",
                             "slot_inicio": 3,
                             "hora_inicio": "13:45",
-                            "hora_fin": "14:15",
-                            "duracion": 30
+                            "hora_fin": "14:45",
+                            "duracion": 60
                         },
                         {
-                            "paciente_id": 311,
-                            "medico": "Dr. Lopez",
-                            "slot_inicio": 5,
-                            "hora_inicio": "14:15",
-                            "hora_fin": "15:00",
+                            "paciente_id": 121,
+                            "medico": "Dra. Flores",
+                            "slot_inicio": 7,
+                            "hora_inicio": "14:45",
+                            "hora_fin": "15:30",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 329,
-                            "medico": "Dr. Lopez",
-                            "slot_inicio": 8,
-                            "hora_inicio": "15:00",
-                            "hora_fin": "15:45",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 316,
-                            "medico": "Dr. Lopez",
-                            "slot_inicio": 11,
-                            "hora_inicio": "15:45",
-                            "hora_fin": "16:30",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 325,
-                            "medico": "Dr. Lopez",
-                            "slot_inicio": 14,
-                            "hora_inicio": "16:30",
+                            "paciente_id": 117,
+                            "medico": "Dra. Flores",
+                            "slot_inicio": 10,
+                            "hora_inicio": "15:30",
                             "hora_fin": "17:00",
-                            "duracion": 30
+                            "duracion": 90
                         }
                     ]
                 },
@@ -237,28 +221,36 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 133,
-                            "medico": "Dra. Carter",
+                            "paciente_id": 116,
+                            "medico": "Dra. Sosa",
                             "slot_inicio": 0,
                             "hora_inicio": "13:00",
-                            "hora_fin": "14:30",
-                            "duracion": 90
-                        },
-                        {
-                            "paciente_id": 117,
-                            "medico": "Dra. Carter",
-                            "slot_inicio": 6,
-                            "hora_inicio": "14:30",
-                            "hora_fin": "16:00",
-                            "duracion": 90
+                            "hora_fin": "13:45",
+                            "duracion": 45
                         },
                         {
                             "paciente_id": 135,
                             "medico": "Dra. Sosa",
-                            "slot_inicio": 12,
-                            "hora_inicio": "16:00",
-                            "hora_fin": "17:00",
+                            "slot_inicio": 3,
+                            "hora_inicio": "13:45",
+                            "hora_fin": "14:45",
                             "duracion": 60
+                        },
+                        {
+                            "paciente_id": 127,
+                            "medico": "Dra. Sosa",
+                            "slot_inicio": 7,
+                            "hora_inicio": "14:45",
+                            "hora_fin": "15:30",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 133,
+                            "medico": "Dra. Sosa",
+                            "slot_inicio": 10,
+                            "hora_inicio": "15:30",
+                            "hora_fin": "17:00",
+                            "duracion": 90
                         }
                     ]
                 },
@@ -277,58 +269,9 @@
                 {
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Mañana",
-                    "especialidad": "Cirugía General",
-                    "utilizacion_porcentaje": 100.0,
-                    "cronograma": [
-                        {
-                            "paciente_id": 221,
-                            "medico": "Dr. Gomez",
-                            "slot_inicio": 0,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "08:45",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 203,
-                            "medico": "Dr. Gomez",
-                            "slot_inicio": 3,
-                            "hora_inicio": "08:45",
-                            "hora_fin": "09:15",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 228,
-                            "medico": "Dr. Gomez",
-                            "slot_inicio": 5,
-                            "hora_inicio": "09:15",
-                            "hora_fin": "10:00",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 220,
-                            "medico": "Dr. Gomez",
-                            "slot_inicio": 8,
-                            "hora_inicio": "10:00",
-                            "hora_fin": "10:45",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 230,
-                            "medico": "Dr. Gomez",
-                            "slot_inicio": 11,
-                            "hora_inicio": "10:45",
-                            "hora_fin": "11:15",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 239,
-                            "medico": "Dr. Gomez",
-                            "slot_inicio": 13,
-                            "hora_inicio": "11:15",
-                            "hora_fin": "12:00",
-                            "duracion": 45
-                        }
-                    ]
+                    "especialidad": "Cardiología",
+                    "utilizacion_porcentaje": 0.0,
+                    "cronograma": []
                 },
                 {
                     "quirofano": "Quirófano 2 (Media)",
@@ -337,40 +280,32 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 421,
-                            "medico": "Dra. García",
+                            "paciente_id": 422,
+                            "medico": "Dr. Gomez",
                             "slot_inicio": 0,
                             "hora_inicio": "08:00",
-                            "hora_fin": "08:30",
-                            "duracion": 30
+                            "hora_fin": "09:00",
+                            "duracion": 60
                         },
                         {
-                            "paciente_id": 418,
-                            "medico": "Dra. García",
-                            "slot_inicio": 2,
-                            "hora_inicio": "08:30",
-                            "hora_fin": "09:15",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 419,
-                            "medico": "Dra. García",
-                            "slot_inicio": 5,
-                            "hora_inicio": "09:15",
+                            "paciente_id": 402,
+                            "medico": "Dr. Gomez",
+                            "slot_inicio": 4,
+                            "hora_inicio": "09:00",
                             "hora_fin": "10:00",
-                            "duracion": 45
+                            "duracion": 60
                         },
                         {
-                            "paciente_id": 414,
-                            "medico": "Dra. García",
+                            "paciente_id": 433,
+                            "medico": "Dr. Gomez",
                             "slot_inicio": 8,
                             "hora_inicio": "10:00",
                             "hora_fin": "11:00",
                             "duracion": 60
                         },
                         {
-                            "paciente_id": 433,
-                            "medico": "Dra. García",
+                            "paciente_id": 420,
+                            "medico": "Dr. Gomez",
                             "slot_inicio": 12,
                             "hora_inicio": "11:00",
                             "hora_fin": "12:00",
@@ -381,9 +316,50 @@
                 {
                     "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
-                    "especialidad": "Libre",
-                    "utilizacion_porcentaje": 0.0,
-                    "cronograma": []
+                    "especialidad": "Urología",
+                    "utilizacion_porcentaje": 100.0,
+                    "cronograma": [
+                        {
+                            "paciente_id": 418,
+                            "medico": "Dra. García",
+                            "slot_inicio": 0,
+                            "hora_inicio": "08:00",
+                            "hora_fin": "08:45",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 421,
+                            "medico": "Dra. García",
+                            "slot_inicio": 3,
+                            "hora_inicio": "08:45",
+                            "hora_fin": "09:15",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 431,
+                            "medico": "Dra. García",
+                            "slot_inicio": 5,
+                            "hora_inicio": "09:15",
+                            "hora_fin": "10:15",
+                            "duracion": 60
+                        },
+                        {
+                            "paciente_id": 414,
+                            "medico": "Dra. García",
+                            "slot_inicio": 9,
+                            "hora_inicio": "10:15",
+                            "hora_fin": "11:15",
+                            "duracion": 60
+                        },
+                        {
+                            "paciente_id": 419,
+                            "medico": "Dra. García",
+                            "slot_inicio": 13,
+                            "hora_inicio": "11:15",
+                            "hora_fin": "12:00",
+                            "duracion": 45
+                        }
+                    ]
                 },
                 {
                     "quirofano": "Quirófano 1 (Alta)",
@@ -392,7 +368,7 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 238,
+                            "paciente_id": 231,
                             "medico": "Dr. Pérez",
                             "slot_inicio": 0,
                             "hora_inicio": "13:00",
@@ -400,7 +376,7 @@
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 234,
+                            "paciente_id": 222,
                             "medico": "Dr. Pérez",
                             "slot_inicio": 2,
                             "hora_inicio": "13:30",
@@ -408,7 +384,7 @@
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 225,
+                            "paciente_id": 221,
                             "medico": "Dr. Pérez",
                             "slot_inicio": 5,
                             "hora_inicio": "14:15",
@@ -416,23 +392,31 @@
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 237,
+                            "paciente_id": 233,
                             "medico": "Dr. Pérez",
                             "slot_inicio": 8,
                             "hora_inicio": "15:00",
-                            "hora_fin": "15:45",
-                            "duracion": 45
+                            "hora_fin": "15:30",
+                            "duracion": 30
                         },
                         {
-                            "paciente_id": 201,
+                            "paciente_id": 239,
                             "medico": "Dr. Pérez",
-                            "slot_inicio": 11,
-                            "hora_inicio": "15:45",
-                            "hora_fin": "16:30",
-                            "duracion": 45
+                            "slot_inicio": 10,
+                            "hora_inicio": "15:30",
+                            "hora_fin": "16:00",
+                            "duracion": 30
                         },
                         {
-                            "paciente_id": 232,
+                            "paciente_id": 203,
+                            "medico": "Dr. Pérez",
+                            "slot_inicio": 12,
+                            "hora_inicio": "16:00",
+                            "hora_fin": "16:30",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 207,
                             "medico": "Dr. Pérez",
                             "slot_inicio": 14,
                             "hora_inicio": "16:30",
@@ -448,44 +432,44 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 213,
-                            "medico": "Dra. Ruiz",
+                            "paciente_id": 238,
+                            "medico": "Dr. Silva",
                             "slot_inicio": 0,
                             "hora_inicio": "13:00",
-                            "hora_fin": "14:00",
+                            "hora_fin": "13:45",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 229,
+                            "medico": "Dr. Silva",
+                            "slot_inicio": 3,
+                            "hora_inicio": "13:45",
+                            "hora_fin": "14:30",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 201,
+                            "medico": "Dr. Silva",
+                            "slot_inicio": 6,
+                            "hora_inicio": "14:30",
+                            "hora_fin": "15:15",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 217,
+                            "medico": "Dr. Silva",
+                            "slot_inicio": 9,
+                            "hora_inicio": "15:15",
+                            "hora_fin": "16:15",
                             "duracion": 60
                         },
                         {
-                            "paciente_id": 209,
+                            "paciente_id": 232,
                             "medico": "Dra. Ruiz",
-                            "slot_inicio": 4,
-                            "hora_inicio": "14:00",
-                            "hora_fin": "14:45",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 231,
-                            "medico": "Dra. Ruiz",
-                            "slot_inicio": 7,
-                            "hora_inicio": "14:45",
-                            "hora_fin": "15:30",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 207,
-                            "medico": "Dra. Ruiz",
-                            "slot_inicio": 10,
-                            "hora_inicio": "15:30",
-                            "hora_fin": "16:00",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 216,
-                            "medico": "Dra. Ruiz",
-                            "slot_inicio": 12,
-                            "hora_inicio": "16:00",
+                            "slot_inicio": 13,
+                            "hora_inicio": "16:15",
                             "hora_fin": "17:00",
-                            "duracion": 60
+                            "duracion": 45
                         }
                     ]
                 },
@@ -504,24 +488,48 @@
                 {
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Mañana",
-                    "especialidad": "Traumatología",
+                    "especialidad": "Cirugía General",
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 118,
-                            "medico": "Dra. Carter",
+                            "paciente_id": 214,
+                            "medico": "Dr. Silva",
                             "slot_inicio": 0,
                             "hora_inicio": "08:00",
-                            "hora_fin": "10:00",
-                            "duracion": 120
+                            "hora_fin": "09:00",
+                            "duracion": 60
                         },
                         {
-                            "paciente_id": 115,
-                            "medico": "Dra. Carter",
+                            "paciente_id": 228,
+                            "medico": "Dr. Martinez",
+                            "slot_inicio": 4,
+                            "hora_inicio": "09:00",
+                            "hora_fin": "10:00",
+                            "duracion": 60
+                        },
+                        {
+                            "paciente_id": 230,
+                            "medico": "Dr. Silva",
                             "slot_inicio": 8,
                             "hora_inicio": "10:00",
+                            "hora_fin": "10:30",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 209,
+                            "medico": "Dr. Silva",
+                            "slot_inicio": 10,
+                            "hora_inicio": "10:30",
+                            "hora_fin": "11:15",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 235,
+                            "medico": "Dr. Silva",
+                            "slot_inicio": 13,
+                            "hora_inicio": "11:15",
                             "hora_fin": "12:00",
-                            "duracion": 120
+                            "duracion": 45
                         }
                     ]
                 },
@@ -533,14 +541,14 @@
                     "cronograma": [
                         {
                             "paciente_id": 130,
-                            "medico": "Dra. Sosa",
+                            "medico": "Dra. Carter",
                             "slot_inicio": 0,
                             "hora_inicio": "08:00",
                             "hora_fin": "09:30",
                             "duracion": 90
                         },
                         {
-                            "paciente_id": 131,
+                            "paciente_id": 115,
                             "medico": "Dra. Sosa",
                             "slot_inicio": 6,
                             "hora_inicio": "09:30",
@@ -549,7 +557,7 @@
                         },
                         {
                             "paciente_id": 113,
-                            "medico": "Dra. Sosa",
+                            "medico": "Dra. Carter",
                             "slot_inicio": 14,
                             "hora_inicio": "11:30",
                             "hora_fin": "12:00",
@@ -560,35 +568,18 @@
                 {
                     "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
-                    "especialidad": "Cirugía General",
-                    "utilizacion_porcentaje": 50.0,
-                    "cronograma": [
-                        {
-                            "paciente_id": 227,
-                            "medico": "Dr. Martinez",
-                            "slot_inicio": 0,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:00",
-                            "duracion": 60
-                        },
-                        {
-                            "paciente_id": 217,
-                            "medico": "Dr. Martinez",
-                            "slot_inicio": 4,
-                            "hora_inicio": "09:00",
-                            "hora_fin": "10:00",
-                            "duracion": 60
-                        }
-                    ]
+                    "especialidad": "Otorrinolaringología",
+                    "utilizacion_porcentaje": 0.0,
+                    "cronograma": []
                 },
                 {
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Tarde",
                     "especialidad": "Neurología",
-                    "utilizacion_porcentaje": 93.75,
+                    "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 320,
+                            "paciente_id": 329,
                             "medico": "Dr. Lopez",
                             "slot_inicio": 0,
                             "hora_inicio": "13:00",
@@ -596,28 +587,44 @@
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 313,
+                            "paciente_id": 335,
                             "medico": "Dr. Lopez",
-                            "slot_inicio": 4,
-                            "hora_inicio": "14:00",
-                            "hora_fin": "15:30",
-                            "duracion": 90
+                            "slot_inicio": 3,
+                            "hora_inicio": "13:45",
+                            "hora_fin": "14:30",
+                            "duracion": 45
                         },
                         {
-                            "paciente_id": 322,
+                            "paciente_id": 316,
                             "medico": "Dr. Lopez",
-                            "slot_inicio": 10,
-                            "hora_inicio": "15:30",
-                            "hora_fin": "16:00",
+                            "slot_inicio": 6,
+                            "hora_inicio": "14:30",
+                            "hora_fin": "15:15",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 317,
+                            "medico": "Dr. Lopez",
+                            "slot_inicio": 9,
+                            "hora_inicio": "15:15",
+                            "hora_fin": "15:45",
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 307,
+                            "paciente_id": 337,
                             "medico": "Dr. Lopez",
-                            "slot_inicio": 12,
-                            "hora_inicio": "16:00",
+                            "slot_inicio": 11,
+                            "hora_inicio": "15:45",
+                            "hora_fin": "16:15",
+                            "duracion": 30
+                        },
+                        {
+                            "paciente_id": 311,
+                            "medico": "Dr. Lopez",
+                            "slot_inicio": 13,
+                            "hora_inicio": "16:15",
                             "hora_fin": "17:00",
-                            "duracion": 60
+                            "duracion": 45
                         }
                     ]
                 },
@@ -628,52 +635,52 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 513,
+                            "paciente_id": 505,
                             "medico": "Dr. Rodríguez",
                             "slot_inicio": 0,
                             "hora_inicio": "13:00",
-                            "hora_fin": "13:45",
-                            "duracion": 45
+                            "hora_fin": "13:30",
+                            "duracion": 30
                         },
                         {
-                            "paciente_id": 505,
+                            "paciente_id": 520,
                             "medico": "Dr. Rodríguez",
-                            "slot_inicio": 3,
-                            "hora_inicio": "13:45",
-                            "hora_fin": "14:15",
+                            "slot_inicio": 2,
+                            "hora_inicio": "13:30",
+                            "hora_fin": "14:00",
                             "duracion": 30
                         },
                         {
                             "paciente_id": 538,
                             "medico": "Dr. Rodríguez",
-                            "slot_inicio": 5,
-                            "hora_inicio": "14:15",
-                            "hora_fin": "14:45",
+                            "slot_inicio": 4,
+                            "hora_inicio": "14:00",
+                            "hora_fin": "14:30",
                             "duracion": 30
                         },
                         {
                             "paciente_id": 530,
                             "medico": "Dr. Rodríguez",
-                            "slot_inicio": 7,
-                            "hora_inicio": "14:45",
-                            "hora_fin": "15:45",
+                            "slot_inicio": 6,
+                            "hora_inicio": "14:30",
+                            "hora_fin": "15:30",
                             "duracion": 60
                         },
                         {
                             "paciente_id": 506,
                             "medico": "Dr. Rodríguez",
-                            "slot_inicio": 11,
-                            "hora_inicio": "15:45",
-                            "hora_fin": "16:30",
+                            "slot_inicio": 10,
+                            "hora_inicio": "15:30",
+                            "hora_fin": "16:15",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 520,
+                            "paciente_id": 513,
                             "medico": "Dr. Rodríguez",
-                            "slot_inicio": 14,
-                            "hora_inicio": "16:30",
+                            "slot_inicio": 13,
+                            "hora_inicio": "16:15",
                             "hora_fin": "17:00",
-                            "duracion": 30
+                            "duracion": 45
                         }
                     ]
                 },
@@ -692,118 +699,77 @@
                 {
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Mañana",
-                    "especialidad": "Neurología",
-                    "utilizacion_porcentaje": 93.75,
+                    "especialidad": "Cardiología",
+                    "utilizacion_porcentaje": 0.0,
+                    "cronograma": []
+                },
+                {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Ginecología",
+                    "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 323,
-                            "medico": "Dra. Blanco",
+                            "paciente_id": 524,
+                            "medico": "Dra. García",
                             "slot_inicio": 0,
                             "hora_inicio": "08:00",
                             "hora_fin": "08:30",
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 306,
-                            "medico": "Dra. Blanco",
+                            "paciente_id": 503,
+                            "medico": "Dra. García",
                             "slot_inicio": 2,
                             "hora_inicio": "08:30",
-                            "hora_fin": "09:15",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 328,
-                            "medico": "Dra. Blanco",
-                            "slot_inicio": 5,
-                            "hora_inicio": "09:15",
-                            "hora_fin": "09:45",
+                            "hora_fin": "09:00",
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 336,
-                            "medico": "Dra. Blanco",
-                            "slot_inicio": 7,
-                            "hora_inicio": "09:45",
-                            "hora_fin": "10:45",
+                            "paciente_id": 533,
+                            "medico": "Dra. García",
+                            "slot_inicio": 4,
+                            "hora_inicio": "09:00",
+                            "hora_fin": "10:00",
                             "duracion": 60
                         },
-                        {
-                            "paciente_id": 315,
-                            "medico": "Dra. Blanco",
-                            "slot_inicio": 12,
-                            "hora_inicio": "11:00",
-                            "hora_fin": "12:00",
-                            "duracion": 60
-                        }
-                    ]
-                },
-                {
-                    "quirofano": "Quirófano 2 (Media)",
-                    "turno": "Mañana",
-                    "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 0.0,
-                    "cronograma": []
-                },
-                {
-                    "quirofano": "Quirófano 3 (Baja)",
-                    "turno": "Mañana",
-                    "especialidad": "Ginecología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cronograma": [
                         {
                             "paciente_id": 507,
                             "medico": "Dra. García",
-                            "slot_inicio": 0,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "08:45",
+                            "slot_inicio": 8,
+                            "hora_inicio": "10:00",
+                            "hora_fin": "10:45",
                             "duracion": 45
                         },
                         {
-                            "paciente_id": 524,
+                            "paciente_id": 534,
                             "medico": "Dra. García",
-                            "slot_inicio": 3,
-                            "hora_inicio": "08:45",
-                            "hora_fin": "09:15",
+                            "slot_inicio": 11,
+                            "hora_inicio": "10:45",
+                            "hora_fin": "11:15",
                             "duracion": 30
                         },
                         {
                             "paciente_id": 510,
                             "medico": "Dra. García",
-                            "slot_inicio": 5,
-                            "hora_inicio": "09:15",
-                            "hora_fin": "10:00",
-                            "duracion": 45
-                        },
-                        {
-                            "paciente_id": 533,
-                            "medico": "Dra. García",
-                            "slot_inicio": 8,
-                            "hora_inicio": "10:00",
-                            "hora_fin": "11:00",
-                            "duracion": 60
-                        },
-                        {
-                            "paciente_id": 503,
-                            "medico": "Dra. García",
-                            "slot_inicio": 12,
-                            "hora_inicio": "11:00",
-                            "hora_fin": "11:30",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 534,
-                            "medico": "Dra. García",
-                            "slot_inicio": 14,
-                            "hora_inicio": "11:30",
+                            "slot_inicio": 13,
+                            "hora_inicio": "11:15",
                             "hora_fin": "12:00",
-                            "duracion": 30
+                            "duracion": 45
                         }
                     ]
                 },
                 {
+                    "quirofano": "Quirófano 3 (Baja)",
+                    "turno": "Mañana",
+                    "especialidad": "Oftalmología",
+                    "utilizacion_porcentaje": 0.0,
+                    "cronograma": []
+                },
+                {
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Tarde",
-                    "especialidad": "Libre",
+                    "especialidad": "Cardiología",
                     "utilizacion_porcentaje": 0.0,
                     "cronograma": []
                 },
@@ -811,31 +777,39 @@
                     "quirofano": "Quirófano 2 (Media)",
                     "turno": "Tarde",
                     "especialidad": "Cirugía General",
-                    "utilizacion_porcentaje": 100.0,
+                    "utilizacion_porcentaje": 93.75,
                     "cronograma": [
-                        {
-                            "paciente_id": 205,
-                            "medico": "Dra. Ruiz",
-                            "slot_inicio": 0,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "15:00",
-                            "duracion": 120
-                        },
-                        {
-                            "paciente_id": 215,
-                            "medico": "Dra. Ruiz",
-                            "slot_inicio": 8,
-                            "hora_inicio": "15:00",
-                            "hora_fin": "16:30",
-                            "duracion": 90
-                        },
                         {
                             "paciente_id": 210,
                             "medico": "Dra. Ruiz",
-                            "slot_inicio": 14,
-                            "hora_inicio": "16:30",
-                            "hora_fin": "17:00",
+                            "slot_inicio": 0,
+                            "hora_inicio": "13:00",
+                            "hora_fin": "13:30",
                             "duracion": 30
+                        },
+                        {
+                            "paciente_id": 218,
+                            "medico": "Dra. Ruiz",
+                            "slot_inicio": 3,
+                            "hora_inicio": "13:45",
+                            "hora_fin": "14:45",
+                            "duracion": 60
+                        },
+                        {
+                            "paciente_id": 226,
+                            "medico": "Dra. Ruiz",
+                            "slot_inicio": 7,
+                            "hora_inicio": "14:45",
+                            "hora_fin": "15:30",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 213,
+                            "medico": "Dra. Ruiz",
+                            "slot_inicio": 10,
+                            "hora_inicio": "15:30",
+                            "hora_fin": "17:00",
+                            "duracion": 90
                         }
                     ]
                 },
@@ -854,54 +828,70 @@
                 {
                     "quirofano": "Quirófano 1 (Alta)",
                     "turno": "Mañana",
-                    "especialidad": "Libre",
-                    "utilizacion_porcentaje": 0.0,
-                    "cronograma": []
-                },
-                {
-                    "quirofano": "Quirófano 2 (Media)",
-                    "turno": "Mañana",
-                    "especialidad": "Cirugía General",
-                    "utilizacion_porcentaje": 100.0,
+                    "especialidad": "Neurología",
+                    "utilizacion_porcentaje": 93.75,
                     "cronograma": [
                         {
-                            "paciente_id": 233,
-                            "medico": "Dr. Martinez",
+                            "paciente_id": 318,
+                            "medico": "Dra. Flores",
                             "slot_inicio": 0,
                             "hora_inicio": "08:00",
-                            "hora_fin": "08:30",
+                            "hora_fin": "08:45",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 306,
+                            "medico": "Dra. Flores",
+                            "slot_inicio": 3,
+                            "hora_inicio": "08:45",
+                            "hora_fin": "09:15",
                             "duracion": 30
                         },
                         {
-                            "paciente_id": 204,
-                            "medico": "Dr. Martinez",
-                            "slot_inicio": 2,
-                            "hora_inicio": "08:30",
-                            "hora_fin": "10:00",
-                            "duracion": 90
+                            "paciente_id": 325,
+                            "medico": "Dra. Flores",
+                            "slot_inicio": 5,
+                            "hora_inicio": "09:15",
+                            "hora_fin": "09:45",
+                            "duracion": 30
                         },
                         {
-                            "paciente_id": 212,
-                            "medico": "Dr. Martinez",
+                            "paciente_id": 320,
+                            "medico": "Dra. Flores",
                             "slot_inicio": 8,
                             "hora_inicio": "10:00",
-                            "hora_fin": "11:30",
-                            "duracion": 90
+                            "hora_fin": "10:45",
+                            "duracion": 45
                         },
                         {
-                            "paciente_id": 200,
-                            "medico": "Dr. Martinez",
-                            "slot_inicio": 14,
-                            "hora_inicio": "11:30",
-                            "hora_fin": "12:00",
+                            "paciente_id": 307,
+                            "medico": "Dra. Flores",
+                            "slot_inicio": 11,
+                            "hora_inicio": "10:45",
+                            "hora_fin": "11:15",
                             "duracion": 30
+                        },
+                        {
+                            "paciente_id": 305,
+                            "medico": "Dra. Flores",
+                            "slot_inicio": 13,
+                            "hora_inicio": "11:15",
+                            "hora_fin": "12:00",
+                            "duracion": 45
                         }
                     ]
                 },
                 {
+                    "quirofano": "Quirófano 2 (Media)",
+                    "turno": "Mañana",
+                    "especialidad": "Otorrinolaringología",
+                    "utilizacion_porcentaje": 0.0,
+                    "cronograma": []
+                },
+                {
                     "quirofano": "Quirófano 3 (Baja)",
                     "turno": "Mañana",
-                    "especialidad": "Libre",
+                    "especialidad": "Oftalmología",
                     "utilizacion_porcentaje": 0.0,
                     "cronograma": []
                 },
@@ -912,23 +902,23 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 310,
+                            "paciente_id": 315,
                             "medico": "Dra. Blanco",
                             "slot_inicio": 0,
                             "hora_inicio": "13:00",
-                            "hora_fin": "14:30",
-                            "duracion": 90
-                        },
-                        {
-                            "paciente_id": 308,
-                            "medico": "Dra. Blanco",
-                            "slot_inicio": 6,
-                            "hora_inicio": "14:30",
-                            "hora_fin": "15:30",
+                            "hora_fin": "14:00",
                             "duracion": 60
                         },
                         {
-                            "paciente_id": 309,
+                            "paciente_id": 323,
+                            "medico": "Dra. Blanco",
+                            "slot_inicio": 4,
+                            "hora_inicio": "14:00",
+                            "hora_fin": "15:30",
+                            "duracion": 90
+                        },
+                        {
+                            "paciente_id": 313,
                             "medico": "Dra. Blanco",
                             "slot_inicio": 10,
                             "hora_inicio": "15:30",
@@ -944,44 +934,44 @@
                     "utilizacion_porcentaje": 100.0,
                     "cronograma": [
                         {
-                            "paciente_id": 429,
+                            "paciente_id": 439,
                             "medico": "Dr. Rodríguez",
                             "slot_inicio": 0,
                             "hora_inicio": "13:00",
-                            "hora_fin": "13:45",
-                            "duracion": 45
+                            "hora_fin": "14:00",
+                            "duracion": 60
                         },
                         {
                             "paciente_id": 436,
                             "medico": "Dr. Rodríguez",
-                            "slot_inicio": 3,
-                            "hora_inicio": "13:45",
-                            "hora_fin": "14:30",
+                            "slot_inicio": 4,
+                            "hora_inicio": "14:00",
+                            "hora_fin": "14:45",
                             "duracion": 45
+                        },
+                        {
+                            "paciente_id": 429,
+                            "medico": "Dr. Rodríguez",
+                            "slot_inicio": 7,
+                            "hora_inicio": "14:45",
+                            "hora_fin": "15:30",
+                            "duracion": 45
+                        },
+                        {
+                            "paciente_id": 424,
+                            "medico": "Dr. Rodríguez",
+                            "slot_inicio": 10,
+                            "hora_inicio": "15:30",
+                            "hora_fin": "16:30",
+                            "duracion": 60
                         },
                         {
                             "paciente_id": 425,
                             "medico": "Dr. Rodríguez",
-                            "slot_inicio": 6,
-                            "hora_inicio": "14:30",
-                            "hora_fin": "15:00",
-                            "duracion": 30
-                        },
-                        {
-                            "paciente_id": 402,
-                            "medico": "Dr. Rodríguez",
-                            "slot_inicio": 8,
-                            "hora_inicio": "15:00",
-                            "hora_fin": "16:00",
-                            "duracion": 60
-                        },
-                        {
-                            "paciente_id": 439,
-                            "medico": "Dr. Rodríguez",
-                            "slot_inicio": 12,
-                            "hora_inicio": "16:00",
+                            "slot_inicio": 14,
+                            "hora_inicio": "16:30",
                             "hora_fin": "17:00",
-                            "duracion": 60
+                            "duracion": 30
                         }
                     ]
                 },
@@ -996,8 +986,8 @@
         }
     ],
     "resumen": {
-        "pacientes_programados": 92,
-        "pacientes_pendientes": 109,
+        "pacientes_programados": 91,
+        "pacientes_pendientes": 110,
         "ids_pendientes": [
             100,
             101,
@@ -1006,54 +996,59 @@
             109,
             110,
             114,
-            116,
+            118,
             119,
-            120,
             122,
-            123,
             124,
-            125,
-            127,
             128,
             129,
+            131,
             132,
             136,
-            137,
+            138,
             139,
+            200,
             202,
+            204,
+            205,
             206,
             208,
             211,
-            214,
-            218,
+            212,
+            215,
+            216,
             219,
-            222,
+            220,
             223,
             224,
-            226,
-            229,
-            235,
+            225,
+            227,
+            234,
             236,
+            237,
             300,
             301,
             302,
             303,
             304,
-            305,
+            308,
+            309,
+            310,
             312,
             314,
             319,
             321,
+            322,
             324,
             326,
             327,
+            328,
             330,
             331,
             332,
             333,
             334,
-            335,
-            337,
+            336,
             338,
             339,
             401,
@@ -1067,14 +1062,10 @@
             413,
             415,
             416,
-            420,
-            422,
             423,
-            424,
             426,
             428,
             430,
-            431,
             432,
             434,
             435,
@@ -1110,5 +1101,5 @@
             539
         ]
     },
-    "duracion_segundos": 246.787
+    "duracion_segundos": 347.09
 }
