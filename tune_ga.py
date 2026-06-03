@@ -388,6 +388,9 @@ def tune(n_configs: int = 20, n_reps: int = 3, master_seed: int = 42) -> None:
             f"{row['penalty_above']:>5.0f}"
         )
 
+    # ── Generar gráficos comparativos ─────────────────────────────────────────
+    plot_results(results)
+
     # ── Guardar CSV completo ──────────────────────────────────────────────────
     csv_path = "tune_results.csv"
     fieldnames = list(results[0].keys())
@@ -422,7 +425,178 @@ def tune(n_configs: int = 20, n_reps: int = 3, master_seed: int = 42) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 5. CLI
+# 5. VISUALIZACIÓN DE RESULTADOS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def plot_results(results: List[Dict]) -> None:
+    """
+    Genera un dashboard de 6 gráficos comparativos guardado como PNG.
+
+    Gráficos:
+      1. Ranking de score compuesto (barras horizontales, top-15)
+      2. Fitness medio ± std por configuración (barras de error)
+      3. Trade-off: fitness medio vs tiempo de ejecución
+      4. Trade-off: fitness medio vs tasa de programación
+      5. Influencia de parámetros clave sobre el score (scatter × 4 params)
+      6. Coeficiente de variación (estabilidad entre seeds)
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg")   # sin GUI, solo genera archivos
+        import matplotlib.pyplot as plt
+        import matplotlib.gridspec as gridspec
+        import seaborn as sns
+    except ImportError:
+        print("⚠  matplotlib/seaborn no encontrados. Omitiendo gráficos.")
+        return
+
+    # ── Paleta y estilo ───────────────────────────────────────────────────────
+    sns.set_theme(style="whitegrid", font_scale=0.9)
+    BLUE    = "#2E4057"
+    TEAL    = "#0F6E56"
+    AMBER   = "#BA7517"
+    CORAL   = "#993C1D"
+    PURPLE  = "#534AB7"
+    GRAY    = "#888780"
+    GOLD    = "#E5A020"
+
+    n      = len(results)
+    ids    = [f"C{r['config_id']:02d}" for r in results]
+    scores = [r["score"]              for r in results]
+    f_mean = [r["fitness_mean"]       for r in results]
+    f_std  = [r["fitness_std"]        for r in results]
+    f_cv   = [r["fitness_cv"]         for r in results]
+    sched  = [r["schedule_rate_mean"] for r in results]
+    s_std  = [r["schedule_rate_std"]  for r in results]
+    t_mean = [r["time_mean_s"]        for r in results]
+    pops   = [r["population_size"]    for r in results]
+    muts   = [r["mutation_rate"]      for r in results]
+    tours  = [r["tournament_size"]    for r in results]
+    alphas = [r["alpha"]              for r in results]
+    gens   = [r["max_generations"]    for r in results]
+
+    # Colores de barras según ranking (oro / teal / resto)
+    bar_colors = [GOLD if i == 0 else (TEAL if i < 3 else BLUE) for i in range(n)]
+
+    fig = plt.figure(figsize=(18, 14))
+    fig.suptitle("Tuning de hiperparámetros — Algoritmo Genético Quirúrgico",
+                 fontsize=14, fontweight="bold", color=BLUE, y=0.98)
+    gs = gridspec.GridSpec(3, 3, figure=fig, hspace=0.48, wspace=0.38)
+
+    # ── 1. Ranking score compuesto ────────────────────────────────────────────
+    ax1 = fig.add_subplot(gs[0, :2])
+    top = min(15, n)
+    ypos = range(top - 1, -1, -1)
+    bars = ax1.barh(list(ypos), scores[:top], color=bar_colors[:top],
+                    edgecolor="white", linewidth=0.5, height=0.7)
+    ax1.set_yticks(list(ypos))
+    ax1.set_yticklabels(ids[:top], fontsize=8)
+    ax1.set_xlabel("Score compuesto (fitness 50% · sched 25% · estabilidad 15% · velocidad 10%)")
+    ax1.set_title("① Ranking de configuraciones (score compuesto)", fontweight="bold", color=BLUE)
+    for bar, score in zip(bars, scores[:top]):
+        ax1.text(bar.get_width() + 0.002, bar.get_y() + bar.get_height() / 2,
+                 f"{score:.4f}", va="center", ha="left", fontsize=7.5, color=BLUE)
+    ax1.set_xlim(0, max(scores) * 1.15)
+    ax1.axvline(scores[0], color=GOLD, linewidth=1.2, linestyle="--", alpha=0.7)
+
+    # ── 2. Fitness medio ± std ────────────────────────────────────────────────
+    ax2 = fig.add_subplot(gs[0, 2])
+    xpos = range(n)
+    ax2.bar(xpos, f_mean, color=bar_colors, edgecolor="white", linewidth=0.4, width=0.7)
+    ax2.errorbar(xpos, f_mean, yerr=f_std, fmt="none",
+                 color=GRAY, capsize=3, linewidth=1.2)
+    ax2.set_xticks(list(xpos))
+    ax2.set_xticklabels(ids, rotation=70, fontsize=6.5)
+    ax2.set_ylabel("Fitness medio")
+    ax2.set_title("② Fitness medio ± σ por config.", fontweight="bold", color=BLUE)
+    ax2.yaxis.set_tick_params(labelsize=7.5)
+
+    # ── 3. Tasa de programación ± std ─────────────────────────────────────────
+    ax3 = fig.add_subplot(gs[1, 0])
+    ax3.bar(xpos, sched, color=bar_colors, edgecolor="white", linewidth=0.4, width=0.7)
+    ax3.errorbar(xpos, sched, yerr=s_std, fmt="none",
+                 color=GRAY, capsize=2.5, linewidth=1.1)
+    ax3.set_xticks(list(xpos))
+    ax3.set_xticklabels(ids, rotation=70, fontsize=6.5)
+    ax3.set_ylabel("Pacientes programados (%)")
+    ax3.set_ylim(0, 100)
+    ax3.set_title("③ Tasa de programación ± σ", fontweight="bold", color=BLUE)
+    ax3.yaxis.set_tick_params(labelsize=7.5)
+
+    # ── 4. Estabilidad: CV por config ──────────────────────────────────────────
+    ax4 = fig.add_subplot(gs[1, 1])
+    cv_colors = [TEAL if cv < 5 else (AMBER if cv < 10 else CORAL) for cv in f_cv]
+    ax4.bar(xpos, f_cv, color=cv_colors, edgecolor="white", linewidth=0.4, width=0.7)
+    ax4.set_xticks(list(xpos))
+    ax4.set_xticklabels(ids, rotation=70, fontsize=6.5)
+    ax4.set_ylabel("CV (%) — menor = más estable")
+    ax4.set_title("④ Estabilidad entre seeds (CV%)", fontweight="bold", color=BLUE)
+    ax4.yaxis.set_tick_params(labelsize=7.5)
+    # Leyenda de colores
+    from matplotlib.patches import Patch
+    ax4.legend(handles=[
+        Patch(facecolor=TEAL,  label="CV < 5% (muy estable)"),
+        Patch(facecolor=AMBER, label="CV 5-10%"),
+        Patch(facecolor=CORAL, label="CV > 10% (inestable)"),
+    ], fontsize=7, loc="upper right")
+
+    # ── 5. Trade-off fitness vs tiempo ────────────────────────────────────────
+    ax5 = fig.add_subplot(gs[1, 2])
+    sc5 = ax5.scatter(t_mean, f_mean, c=scores, cmap="RdYlGn",
+                      s=60, edgecolors=BLUE, linewidths=0.5, zorder=3)
+    # Anotar top-3
+    for i in range(min(3, n)):
+        ax5.annotate(ids[i], (t_mean[i], f_mean[i]),
+                     textcoords="offset points", xytext=(5, 4),
+                     fontsize=7, color=BLUE, fontweight="bold")
+    plt.colorbar(sc5, ax=ax5, label="Score", shrink=0.85)
+    ax5.set_xlabel("Tiempo medio (s)")
+    ax5.set_ylabel("Fitness medio")
+    ax5.set_title("⑤ Fitness vs Tiempo\n(color = score)", fontweight="bold", color=BLUE)
+
+    # ── 6. Influencia de parámetros sobre el score (4 scatter) ───────────────
+    ax6 = fig.add_subplot(gs[2, :])
+    ax6.axis("off")
+    sub_params = [
+        (pops,   "population_size",  "Tamaño de población"),
+        (muts,   "mutation_rate",    "Tasa de mutación"),
+        (alphas, "alpha",            "Alpha (peso prioridad)"),
+        (tours,  "tournament_size",  "Tamaño de torneo"),
+    ]
+    inner_gs = gridspec.GridSpecFromSubplotSpec(1, 4, subplot_spec=gs[2, :], wspace=0.4)
+
+    for col, (param_vals, param_key, param_label) in enumerate(sub_params):
+        axi = fig.add_subplot(inner_gs[col])
+        axi.scatter(param_vals, scores, c=scores, cmap="RdYlGn",
+                    s=50, edgecolors=BLUE, linewidths=0.4, zorder=3)
+        # Línea de tendencia (regresión lineal simple)
+        pv = np.array(param_vals, dtype=float)
+        sv = np.array(scores,     dtype=float)
+        if pv.std() > 0:
+            m, b = np.polyfit(pv, sv, 1)
+            x_line = np.linspace(pv.min(), pv.max(), 50)
+            axi.plot(x_line, m * x_line + b, color=CORAL, linewidth=1.5,
+                     linestyle="--", alpha=0.8, label=f"tendencia")
+            # Correlación de Pearson
+            corr = np.corrcoef(pv, sv)[0, 1]
+            axi.set_title(f"⑥ {param_label}\nr = {corr:.2f}",
+                          fontweight="bold", color=BLUE, fontsize=8.5)
+        else:
+            axi.set_title(f"⑥ {param_label}", fontweight="bold", color=BLUE, fontsize=8.5)
+        axi.set_xlabel(param_key, fontsize=7.5)
+        axi.set_ylabel("Score" if col == 0 else "", fontsize=7.5)
+        axi.tick_params(labelsize=7)
+
+    # ── Guardar ───────────────────────────────────────────────────────────────
+    out_path = "tune_comparativa.png"
+    fig.savefig(out_path, dpi=150, bbox_inches="tight",
+                facecolor="white", edgecolor="none")
+    plt.close(fig)
+    print(f"✔  Gráficos guardados en: {out_path}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. CLI
 # ═══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
