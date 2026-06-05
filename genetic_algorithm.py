@@ -1,5 +1,5 @@
 """
-genetic_algorithm.py — Nivel 1: Algoritmo Genético optimizado para Slots.
+genetic_algorithm.py — Nivel 1: Algoritmo Genético optimizado para Slots y Competencias.
 """
 import random
 from concurrent.futures import ThreadPoolExecutor
@@ -45,7 +45,7 @@ class GeneticAlgorithm:
         staff_list: List[Staff]
     ):
         self.cfg = config
-        self.ors = operating_rooms
+        self.operating_rooms = operating_rooms  # Mantenemos este nombre consistente en toda la clase
         self.specialties = specialties
         self.patients_by_specialty = patients_by_specialty
         self.staff_list = staff_list 
@@ -65,13 +65,21 @@ class GeneticAlgorithm:
         self._cache_hits: int = 0
         self._fitness_cache: Dict[bytes, float] = {}
         self._fitness_cache_hits: int = 0
-        # Lock protecting access to caches when evaluating in threads
         self._cache_lock: Lock = Lock()
         
-        # Resolución temporal: cambiá slot_size_min en GAConfig para ajustarlo.
-        # 15 min → 16 slots por bloque (recomendado, múltiplo exacto de 30/45/60/90/120)
-        # 30 min → 8 slots (más rápido pero genera gaps en cirugías de 45 min)
         self.slot_size = config.slot_size_min
+
+        # Nomenclador de procedimientos por especialidad idéntico al del main
+        self.procedures_by_specialty = {
+            1: [101, 102, 103], # Traumatología
+            2: [201, 202, 203], # Cirugía General
+            3: [301, 302],      # Neurología
+            4: [401, 402],      # Urología
+            5: [501, 502],      # Ginecología
+            6: [601, 602],      # Cardiología
+            7: [701, 702],      # Otorrinolaringología
+            8: [801, 802]       # Oftalmología
+        }
 
     # ─── 2.1 INICIALIZACIÓN ───────────────────────────────────────────────
 
@@ -93,25 +101,34 @@ class GeneticAlgorithm:
         return random.choice(options)
 
     def _valid_specialties_for(self, or_idx: int, day: int, shift: int) -> List[int]:
-        or_ = self._or_by_idx[or_idx]
-        if not or_.availability[day][shift]:
-            return []
-
-        is_morning = (shift == 0)
-        valid_options = []
+        or_obj = self._or_by_idx[or_idx]
         
+        if not or_obj.availability[day][shift]:
+            return [0]
+
+        valid = [0]
+        is_morning = (shift == 0)
+
         for s in self.specialties:
             if s.id == 0:
                 continue
-            if or_.or_type in s.compatible_or_types:
-                has_staff = any(
-                    s.id in staff.specialties_ids and 
-                    staff.get_available_minutes_in_block(day, is_morning) > 0
-                    for staff in self.staff_list if staff.role == "cirujano"
-                )
-                if has_staff:
-                    valid_options.append(s.id)
-        return valid_options
+                
+            if or_obj.or_type not in s.compatible_or_types:
+                continue
+                
+            proc_pool = self.procedures_by_specialty.get(s.id, [])
+            has_staff = False
+            
+            for staff in self.staff_list:
+                has_competence = any(pid in staff.enabled_procedures_ids for pid in proc_pool)
+                if has_competence and staff.get_available_minutes_in_block(day, is_morning) > 0:
+                    has_staff = True
+                    break
+                        
+            if has_staff:
+                valid.append(s.id)
+                
+        return valid
 
     # ─── 2.2 CONSTRUCCIÓN DE BLOQUES POR TURNO ────────────────────────────
 
@@ -147,10 +164,12 @@ class GeneticAlgorithm:
                                 "patients": [], "surgeons": [], "t_max": 0})
                 continue
 
+            # CORRECCIÓN: Filtrar staff usando los códigos de procedimientos de la especialidad asignada
+            proc_pool = self.procedures_by_specialty.get(spec_id, [])
             surgeons = [
                 s for s in self.staff_list
                 if s.role == "cirujano"
-                and spec_id in s.specialties_ids
+                and any(pid in s.enabled_procedures_ids for pid in proc_pool)
                 and s.get_available_minutes_in_block(d, is_morning) > 0
             ]
 
@@ -177,11 +196,6 @@ class GeneticAlgorithm:
         return blocks
 
     def _get_shift_result(self, blocks: List[Dict], d: int, is_morning: bool) -> Optional[Dict]:
-        """Obtener resultado del MIP para un turno usando la caché.
-
-        Si no existe en caché, resuelve el MIP y almacena el resultado.
-        Devuelve None si no debe ejecutarse (por ejemplo, no hay cirujanos/pacientes).
-        """
         if not any(b["surgeons"] and b["patients"] for b in blocks):
             return None
 
@@ -193,10 +207,8 @@ class GeneticAlgorithm:
                 self._cache_hits += 1
                 return result
 
-        # compute without holding lock
         result = solve_mip_for_shift(blocks, d, is_morning, self.cfg.alpha, self.cfg.beta, slot_size=self.slot_size)
         with self._cache_lock:
-            # store result for future evaluations
             self._mip_cache[key] = result
         return result
 
@@ -209,7 +221,7 @@ class GeneticAlgorithm:
     def evaluate_fitness(self, individual: Individual) -> float:
         chrom = individual.chromosome
         chrom_key = self._chromosome_key(chrom)
-        # Fast path: check fitness cache under lock
+        
         with self._cache_lock:
             cached_f = self._fitness_cache.get(chrom_key)
             if cached_f is not None:
@@ -225,7 +237,6 @@ class GeneticAlgorithm:
                 is_morning = (t == 0)
                 blocks = self._build_shift_blocks(chrom, d, t, is_morning, pacientes_operados)
                 
-                # Validación Crítica: Solo llamar al MIP si hay cirujanos y pacientes candidatos
                 result = self._get_shift_result(blocks, d, is_morning)
                 if result is not None:
                     total_z += result["fitness"]
@@ -251,7 +262,6 @@ class GeneticAlgorithm:
                 
                 if any(b["surgeons"] and b["patients"] for b in blocks):
                     result = self._get_shift_result(blocks, d, is_morning)
-                    # result no será None aquí, pero comprobamos por seguridad
                     if result is None:
                         for q in range(self.n_ors):
                             cache[(d, t, q)] = {"pacientes_ids": [], "asignaciones": [], "uso_tiempo": 0, "utilizacion_porcentaje": 0}
@@ -260,7 +270,6 @@ class GeneticAlgorithm:
                         for q in range(self.n_ors):
                             cache[(d, t, q)] = result["per_or"].get(q)
                 else:
-                    # Rellenar con datos vacíos si no hubo ejecución MIP
                     for q in range(self.n_ors):
                         cache[(d, t, q)] = {"pacientes_ids": [], "asignaciones": [], "uso_tiempo": 0, "utilizacion_porcentaje": 0}
 
@@ -273,17 +282,14 @@ class GeneticAlgorithm:
     def crossover(self, parent1: Individual, parent2: Individual) -> Tuple[Individual, Individual]:
         if random.random() > self.cfg.crossover_rate:
             return parent1.copy(), parent2.copy()
+            
         c1, c2 = parent1.chromosome.copy(), parent2.chromosome.copy()
-        if random.random() < 0.5:
-            cut = random.randint(1, self.n_days - 1)
-            child1 = np.concatenate([c1[:cut],  c2[cut:]], axis=0)
-            child2 = np.concatenate([c2[:cut],  c1[cut:]], axis=0)
-        else:
-            cut = random.randint(1, self.n_ors - 1)
-            child1 = np.concatenate([c1[:, :, :cut], c2[:, :, cut:]], axis=2)
-            child2 = np.concatenate([c2[:, :, :cut], c1[:, :, cut:]], axis=2)
+        cut = random.randint(1, self.n_days - 1)
+        child1 = np.concatenate([c1[:cut],  c2[cut:]], axis=0)
+        child2 = np.concatenate([c2[:cut],  c1[cut:]], axis=0)
+        
         return Individual(child1), Individual(child2)
-
+        
     def mutate(self, individual: Individual) -> Individual:
         chrom = individual.chromosome.copy()
         for d in range(self.n_days):
@@ -294,42 +300,16 @@ class GeneticAlgorithm:
                             chrom[d, t, q] = self._random_specialty_for(q, d, t)
                         else:
                             d2, t2, q2 = random.randrange(self.n_days), random.randrange(self.n_shifts), random.randrange(self.n_ors)
-                            chrom[d, t, q], chrom[d2, t2, q2] = int(chrom[d2, t2, q2]), int(chrom[d, t, q])
-        return Individual(chrom)
-
-    def repair(self, individual: Individual) -> Individual:
-        chrom = individual.chromosome.copy()
-        for d in range(self.n_days):
-            for t in range(self.n_shifts):
-                for q in range(self.n_ors):
-                    spec_id = int(chrom[d, t, q])
-                    or_ = self._or_by_idx[q]
-                    if not or_.availability[d][t]:
-                        chrom[d, t, q] = 0
-                        continue
-                    if spec_id == 0:
-                        continue
-                    spec = self._spec_by_id.get(spec_id)
-                    if spec is None or or_.or_type not in spec.compatible_or_types:
-                        chrom[d, t, q] = self._random_specialty_for(q, d, t)
-
-        counts = self._count_blocks_per_specialty(chrom)
-        for spec in self.specialties:
-            if spec.id == 0:
-                continue
-            deficit = spec.min_blocks - counts.get(spec.id, 0)
-            if deficit > 0:
-                candidates = [(d, t, q) for d in range(self.n_days) for t in range(self.n_shifts) for q in range(self.n_ors)
-                              if self._or_by_idx[q].availability[d][t] and self._or_by_idx[q].or_type in spec.compatible_or_types
-                              and (chrom[d, t, q] == 0 or counts.get(int(chrom[d, t, q]), 0) > self._spec_by_id[int(chrom[d, t, q])].min_blocks)]
-                random.shuffle(candidates)
-                for i in range(min(deficit, len(candidates))):
-                    d, t, q = candidates[i]
-                    old_sid = int(chrom[d, t, q])
-                    chrom[d, t, q] = spec.id
-                    counts[spec.id] = counts.get(spec.id, 0) + 1
-                    if old_sid != 0:
-                        counts[old_sid] -= 1
+                            or_dest1 = self._or_by_idx[q]
+                            or_dest2 = self._or_by_idx[q2]
+                            spec1 = self._spec_by_id.get(int(chrom[d, t, q]))
+                            spec2 = self._spec_by_id.get(int(chrom[d2, t2, q2]))
+                            
+                            comp1 = (spec1.id == 0 or or_dest2.or_type in spec1.compatible_or_types)
+                            comp2 = (spec2.id == 0 or or_dest1.or_type in spec2.compatible_or_types)
+                            
+                            if comp1 and comp2:
+                                chrom[d, t, q], chrom[d2, t2, q2] = int(chrom[d2, t2, q2]), int(chrom[d, t, q])
         return Individual(chrom)
 
     def _count_blocks_per_specialty(self, chrom: np.ndarray) -> Dict[int, int]:
@@ -340,9 +320,7 @@ class GeneticAlgorithm:
             for individual in population:
                 self.evaluate_fitness(individual)
             return
-        # Use ThreadPoolExecutor so threads share the same caches (protected by lock)
         with ThreadPoolExecutor(max_workers=self.cfg.parallel_workers) as executor:
-            # executor.map will call self.evaluate_fitness for each individual
             list(executor.map(self.evaluate_fitness, population))
 
     def _global_penalty(self, chrom: np.ndarray) -> float:
@@ -359,24 +337,11 @@ class GeneticAlgorithm:
         return penalty
 
     # ─── 2.5 LOOP PRINCIPAL ───────────────────────────────────────────────
-
     def run(self) -> Individual:
         self.history = []
         print("▶  Inicializando población...")
         population = self.initialize_population()
-        if self.cfg.parallel_workers <= 1:
-            for idx, ind in enumerate(population, start=1):
-                self.evaluate_fitness(ind)
-                if idx % 5 == 0 or idx == len(population):
-                    print(f"  • Initial population progress: {idx}/{len(population)}")
-        else:
-            batch_size = max(1, self.cfg.parallel_workers)
-            for start_idx in range(0, len(population), batch_size):
-                batch = population[start_idx:start_idx + batch_size]
-                self._evaluate_population(batch)
-                end_idx = min(start_idx + batch_size, len(population))
-                if end_idx % 5 == 0 or end_idx == len(population):
-                    print(f"  • Initial population progress: {end_idx}/{len(population)}")
+        self._evaluate_population(population)
 
         population.sort(key=lambda x: x.fitness, reverse=True)
         self.best_individual = population[0].copy()
@@ -393,14 +358,10 @@ class GeneticAlgorithm:
                 p2 = self.tournament_selection(population)
                 c1, c2 = self.crossover(p1, p2)
 
-                children = [self.repair(self.mutate(child)) for child in (c1, c2)]
-                if self.cfg.parallel_workers > 1:
-                    self._evaluate_population(children)
-                else:
-                    for child in children:
-                        self.evaluate_fitness(child)
-
+                children = [self.mutate(child) for child in (c1, c2)]
+                
                 for child in children:
+                    self.evaluate_fitness(child)
                     if len(new_population) < self.cfg.population_size:
                         new_population.append(child)
 
