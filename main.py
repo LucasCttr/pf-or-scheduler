@@ -101,7 +101,7 @@ def default_config() -> GAConfig:
                     elite_count=2, n_days=5, n_shifts=2, block_duration_min=240,
                     slot_size_min=15, penalty_below_min_quota=50.0, penalty_above_max_quota=20.0, parallel_workers=24)
 
-def reconstruct_agenda(ga, best, patients_by_specialty, specialties, operating_rooms, staff_list, config):
+def reconstruct_agenda(ga, best, patients_by_specialty, specialties, operating_rooms, staff_list, config, frontend_mode: bool = False):
     print("\n▶  Leyendo cronograma unificado desde MIP-Slots por Turno...")
     schedule_cache = ga.get_schedule_details(best)
     all_pids = {p.id for lst in patients_by_specialty.values() for p in lst}
@@ -117,12 +117,26 @@ def reconstruct_agenda(ga, best, patients_by_specialty, specialties, operating_r
                 spec_name = next(s.name for s in specialties if s.id == spec_id)
                 per_or    = schedule_cache.get((d, t, q_idx)) or {}
                 
-                cronograma = [{"paciente_id": a["p"], "medico": a["doc"],
-                                "slot_inicio": a["slot_inicio"],
-                                "hora_inicio": a["hora_inicio"],
-                                "hora_fin":    a["hora_fin"],
-                                "duracion":    a["duracion"]}
-                               for a in per_or.get("asignaciones", [])]
+                if frontend_mode:
+                    # Minimal, frontend-friendly entries: paciente, procedimiento, medico, horas
+                    cronograma = [{
+                        "paciente_id": a["p"],
+                        "procedimiento": None,
+                        "medico": a["doc"],
+                        "hora_inicio": a["hora_inicio"],
+                        "hora_fin": a["hora_fin"]
+                    } for a in per_or.get("asignaciones", [])]
+                    # fill procedimiento by looking up patient objects
+                    pid_to_proc = {p.id: p.procedure_id for lst in patients_by_specialty.values() for p in lst}
+                    for entry in cronograma:
+                        entry["procedimiento"] = pid_to_proc.get(entry["paciente_id"])
+                else:
+                    cronograma = [{"paciente_id": a["p"], "medico": a["doc"],
+                                    "slot_inicio": a["slot_inicio"],
+                                    "hora_inicio": a["hora_inicio"],
+                                    "hora_fin":    a["hora_fin"],
+                                    "duracion":    a["duracion"]}
+                                   for a in per_or.get("asignaciones", [])]
                                
                 for a in per_or.get("asignaciones", []):
                     pacientes_asignados.add(a["p"])
@@ -162,7 +176,10 @@ def main():
     best = ga.run()
     ga.print_schedule(best)
     
-    agenda, asignados = reconstruct_agenda(ga, best, patients_by_specialty, specialties, operating_rooms, staff_list, config)
+    import sys
+    frontend_mode = "--frontend" in sys.argv
+
+    agenda, asignados = reconstruct_agenda(ga, best, patients_by_specialty, specialties, operating_rooms, staff_list, config, frontend_mode=frontend_mode)
     elapsed = time.perf_counter() - start
     agenda["duracion_segundos"] = round(elapsed, 3)
     

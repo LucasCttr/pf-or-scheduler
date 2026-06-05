@@ -1,0 +1,18 @@
+{
+    "population_size": 40,
+    "max_generations": 50,
+    "convergence_patience": 7,
+    "mutation_rate": 0.103,
+    "crossover_rate": 0.918,
+    "tournament_size": 10,
+    "elite_count": 1,
+    "penalty_below_min_quota": 50.0,
+    "penalty_above_max_quota": 30.0,
+    "alpha": 0.872,
+    "beta": 0.128,
+    "n_days": 5,
+    "n_shifts": 2,
+    "block_duration_min": 240,
+    "slot_size_min": 15,
+    "parallel_workers": 1
+}

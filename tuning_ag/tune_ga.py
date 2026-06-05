@@ -19,18 +19,17 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib
 import json
 import random
-import time
 import sys
-import os
-from dataclasses import asdict
+import time
+import io
+import contextlib
+from pathlib import Path
 from typing import Dict, List, Any
 
 import numpy as np
-
-# ── Asegurarse de que los módulos del proyecto están en el path ───────────────
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # ── Monkeypatch: forzar timeLimit=2s en el solver MIP durante el tuning ───────
 # El MIP tiene timeLimit=10s por defecto. Durante el tuning solo necesitamos
@@ -52,32 +51,54 @@ class _TuningCBC(_OriginalCBC):
 _pulp.PULP_CBC_CMD = _TuningCBC
 # ─────────────────────────────────────────────────────────────────────────────
 
-from models import OperatingRoom, Specialty, Patient, GAConfig, Staff
-from genetic_algorithm import GeneticAlgorithm
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+models_module = importlib.import_module("models")
+genetic_algorithm_module = importlib.import_module("genetic_algorithm")
+
+OperatingRoom = models_module.OperatingRoom
+Specialty = models_module.Specialty
+Patient = models_module.Patient
+GAConfig = models_module.GAConfig
+Staff = models_module.Staff
+GeneticAlgorithm = genetic_algorithm_module.GeneticAlgorithm
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. DATOS DE PRUEBA (mismos que main.py, reducidos para velocidad)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+PROCEDURES_BY_SPECIALTY = {
+    1: [101, 102, 103],
+    2: [201, 202, 203],
+    3: [301, 302],
+    4: [401, 402],
+    5: [501, 502],
+    6: [601, 602],
+    7: [701, 702],
+    8: [801, 802],
+}
+
 def _build_staff() -> List[Staff]:
     return [
-        Staff(id=1,  name="Dr. Pérez",     role="cirujano", specialties_ids=[1,2], availability_hours={0:(480,620),  1:(780,1020)}),
-        Staff(id=2,  name="Dra. Sosa",     role="cirujano", specialties_ids=[1],   availability_hours={0:(480,1020), 2:(480,720)}),
-        Staff(id=3,  name="Dra. Carter",   role="cirujano", specialties_ids=[1],   availability_hours={0:(620,1020), 2:(480,720)}),
-        Staff(id=4,  name="Dr. Gomez",     role="cirujano", specialties_ids=[2,4], availability_hours={0:(480,720),  1:(480,720)}),
-        Staff(id=5,  name="Dra. Ruiz",     role="cirujano", specialties_ids=[2],   availability_hours={1:(780,1020), 3:(780,1020)}),
-        Staff(id=6,  name="Dr. Martinez",  role="cirujano", specialties_ids=[2],   availability_hours={2:(480,600),  4:(480,720)}),
-        Staff(id=7,  name="Dra. Blanco",   role="cirujano", specialties_ids=[3],   availability_hours={3:(480,720),  4:(780,1020)}),
-        Staff(id=8,  name="Dr. Lopez",     role="cirujano", specialties_ids=[3],   availability_hours={0:(780,1020), 2:(780,1020)}),
-        Staff(id=9,  name="Dra. García",   role="cirujano", specialties_ids=[4,5], availability_hours={1:(480,720),  3:(480,720)}),
-        Staff(id=10, name="Dr. Rodríguez", role="cirujano", specialties_ids=[4,5], availability_hours={2:(780,1020), 4:(780,1020)}),
-        Staff(id=11, name="Dr. Morales",   role="cirujano", specialties_ids=[6],   availability_hours={0:(480,720),  3:(480,1020)}),
-        Staff(id=12, name="Dra. Herrera",  role="cirujano", specialties_ids=[6,7], availability_hours={1:(480,720),  4:(480,720)}),
-        Staff(id=13, name="Dr. Castro",    role="cirujano", specialties_ids=[7],   availability_hours={2:(780,1020), 3:(780,1020)}),
-        Staff(id=14, name="Dra. Mendez",   role="cirujano", specialties_ids=[8],   availability_hours={0:(480,720),  4:(480,1020)}),
-        Staff(id=15, name="Dr. Silva",     role="cirujano", specialties_ids=[2,8], availability_hours={1:(780,1020), 2:(480,720)}),
-        Staff(id=16, name="Dra. Flores",   role="cirujano", specialties_ids=[1,3], availability_hours={0:(780,1020), 4:(480,720)}),
+        Staff(id=1,  name="Dr. Pérez",     role="cirujano", enabled_procedures_ids=[101,102,103,201,202], availability_hours={0:(480,620),  1:(780,1020)}),
+        Staff(id=2,  name="Dra. Sosa",     role="cirujano", enabled_procedures_ids=[101,102,103],         availability_hours={0:(480,1020), 2:(480,720)}),
+        Staff(id=3,  name="Dra. Carter",   role="cirujano", enabled_procedures_ids=[101,102],             availability_hours={0:(620,1020), 2:(480,720)}),
+        Staff(id=4,  name="Dr. Gomez",     role="cirujano", enabled_procedures_ids=[201,202,203,401,402], availability_hours={0:(480,720),  1:(480,720)}),
+        Staff(id=5,  name="Dra. Ruiz",     role="cirujano", enabled_procedures_ids=[201,202,203],         availability_hours={1:(780,1020), 3:(780,1020)}),
+        Staff(id=6,  name="Dr. Martinez",  role="cirujano", enabled_procedures_ids=[201,202],             availability_hours={2:(480,600),  4:(480,720)}),
+        Staff(id=7,  name="Dra. Blanco",   role="cirujano", enabled_procedures_ids=[301,302],             availability_hours={3:(480,720),  4:(780,1020)}),
+        Staff(id=8,  name="Dr. Lopez",     role="cirujano", enabled_procedures_ids=[301,302],             availability_hours={0:(780,1020), 2:(780,1020)}),
+        Staff(id=9,  name="Dra. García",   role="cirujano", enabled_procedures_ids=[401,402,501,502],     availability_hours={1:(480,720),  3:(480,720)}),
+        Staff(id=10, name="Dr. Rodríguez", role="cirujano", enabled_procedures_ids=[401,501,502],         availability_hours={2:(780,1020), 4:(780,1020)}),
+        Staff(id=11, name="Dr. Morales",   role="cirujano", enabled_procedures_ids=[601,602],             availability_hours={0:(480,720),  3:(480,1020)}),
+        Staff(id=12, name="Dra. Herrera",  role="cirujano", enabled_procedures_ids=[601,701,702],         availability_hours={1:(480,720),  4:(480,720)}),
+        Staff(id=13, name="Dr. Castro",    role="cirujano", enabled_procedures_ids=[701,702],             availability_hours={2:(780,1020), 3:(780,1020)}),
+        Staff(id=14, name="Dra. Mendez",   role="cirujano", enabled_procedures_ids=[801,802],             availability_hours={0:(480,720),  4:(480,1020)}),
+        Staff(id=15, name="Dr. Silva",     role="cirujano", enabled_procedures_ids=[201,202,801],         availability_hours={1:(780,1020), 2:(480,720)}),
+        Staff(id=16, name="Dra. Flores",   role="cirujano", enabled_procedures_ids=[101,301,302],         availability_hours={0:(780,1020), 4:(480,720)}),
     ]
 
 def _build_operating_rooms() -> List[OperatingRoom]:
@@ -103,19 +124,25 @@ def _build_specialties() -> List[Specialty]:
 def _make_patients(specialty_id: int, count: int, seed: int, staff_list: List[Staff]) -> List[Patient]:
     rng = random.Random(seed)
     duraciones = [30, 45, 60, 90, 120]
-    cirujanos_ids = [s.id for s in staff_list if specialty_id in s.specialties_ids]
+    proc_pool = PROCEDURES_BY_SPECIALTY.get(specialty_id, [specialty_id * 100])
+    cirujanos_ids = [
+        s.id for s in staff_list
+        if any(pid in s.enabled_procedures_ids for pid in proc_pool)
+    ]
     patients: List[Patient] = []
     if specialty_id == 1:
-        patients.append(Patient(id=2000, specialty_id=1, estimated_duration=60,
+        patients.append(Patient(id=2000, specialty_id=1, procedure_id=101, estimated_duration=60,
                                 clinical_priority=99.0, required_roles=["cirujano"],
                                 forced_surgeon_id=1))
     for i in range(count):
         forced = None
+        chosen_proc = rng.choice(proc_pool)
         if cirujanos_ids and rng.random() < 0.20:
             forced = rng.choice(cirujanos_ids)
         patients.append(Patient(
             id=specialty_id * 100 + i,
             specialty_id=specialty_id,
+            procedure_id=chosen_proc,
             estimated_duration=rng.choice(duraciones),
             clinical_priority=round(rng.uniform(1.0, 10.0), 2),
             required_roles=["cirujano"],
@@ -185,8 +212,6 @@ def _run_single(cfg_dict: Dict[str, Any], seed: int,
     Suprime la salida por consola del GA durante el tuning.
     Retorna un dict con las métricas de interés.
     """
-    import io, contextlib
-
     config = GAConfig(**cfg_dict)
     random.seed(seed)
     np.random.seed(seed)
@@ -237,7 +262,7 @@ def tune(n_configs: int = 20, n_reps: int = 3, master_seed: int = 42) -> None:
     total_patients = sum(len(v) for v in patients_by_specialty.values())
 
     print(f"\n{'═'*70}")
-    print(f"  TUNING DE HIPERPARÁMETROS — Random Search")
+    print("  TUNING DE HIPERPARÁMETROS — Random Search")
     print(f"  {n_configs} configuraciones × {n_reps} repeticiones = {n_configs * n_reps} ejecuciones")
     print(f"  Pacientes en pool: {total_patients}")
     print(f"{'═'*70}\n")
@@ -357,7 +382,7 @@ def tune(n_configs: int = 20, n_reps: int = 3, master_seed: int = 42) -> None:
 
     # ── Imprimir tabla de ranking ─────────────────────────────────────────────
     print(f"\n\n{'═'*100}")
-    print(f"  RANKING DE CONFIGURACIONES")
+    print("  RANKING DE CONFIGURACIONES")
     print(f"{'═'*100}")
     header = (
         f"{'Rank':>4}  {'Score':>6}  {'Fit μ':>9}  {'Fit σ':>7}  {'CV%':>6}  "
@@ -417,10 +442,10 @@ def tune(n_configs: int = 20, n_reps: int = 3, master_seed: int = 42) -> None:
     print(f"  CV (estabilidad)  = {best_row['fitness_cv']:.2f}%  (menor = más estable)")
     print(f"  schedule_rate     = {best_row['schedule_rate_mean']:.2f}%  ± {best_row['schedule_rate_std']:.2f}%")
     print(f"  tiempo_medio      = {best_row['time_mean_s']:.1f}s")
-    print(f"\n  GAConfig(")
+    print("\n  GAConfig(")
     for k, v in best_cfg_out.items():
         print(f"      {k}={repr(v)},")
-    print(f"  )")
+    print("  )")
     print(f"{'═'*70}\n")
 
 
@@ -456,7 +481,6 @@ def plot_results(results: List[Dict]) -> None:
     TEAL    = "#0F6E56"
     AMBER   = "#BA7517"
     CORAL   = "#993C1D"
-    PURPLE  = "#534AB7"
     GRAY    = "#888780"
     GOLD    = "#E5A020"
 
@@ -473,7 +497,6 @@ def plot_results(results: List[Dict]) -> None:
     muts   = [r["mutation_rate"]      for r in results]
     tours  = [r["tournament_size"]    for r in results]
     alphas = [r["alpha"]              for r in results]
-    gens   = [r["max_generations"]    for r in results]
 
     # Colores de barras según ranking (oro / teal / resto)
     bar_colors = [GOLD if i == 0 else (TEAL if i < 3 else BLUE) for i in range(n)]
@@ -576,7 +599,7 @@ def plot_results(results: List[Dict]) -> None:
             m, b = np.polyfit(pv, sv, 1)
             x_line = np.linspace(pv.min(), pv.max(), 50)
             axi.plot(x_line, m * x_line + b, color=CORAL, linewidth=1.5,
-                     linestyle="--", alpha=0.8, label=f"tendencia")
+                     linestyle="--", alpha=0.8, label="tendencia")
             # Correlación de Pearson
             corr = np.corrcoef(pv, sv)[0, 1]
             axi.set_title(f"⑥ {param_label}\nr = {corr:.2f}",
