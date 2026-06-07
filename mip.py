@@ -168,7 +168,7 @@ def solve_mip_for_shift(
                 prob += lpSum(terms) <= 1
 
     # 8. Resolver
-    prob.solve(PULP_CBC_CMD(msg=0, timeLimit=0.5))
+    prob.solve(PULP_CBC_CMD(msg=0, timeLimit=1))
 
     # 9. Extraer Cronograma Detallado
     z_final  = value(prob.objective) or 0.0
