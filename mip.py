@@ -33,15 +33,21 @@ def solve_mip_for_shift(
     Resuelve la ventana operativa completa para UN turno (d, t), consolidando todos los ORs.
     """
     block_start = 480 if is_morning else 780   
-    _active_t_max = next((b["t_max"] for b in blocks if b["t_max"] > 0), 0)
-    n_slots       = _active_t_max // slot_size if _active_t_max else 0
-
+    
     # 1. Filtrar bloques activos asignados por el AG en este turno
     active = [
         b for b in blocks
         if b["spec_id"] > 0 and b["surgeons"] and b["patients"] and b["t_max"] > 0
     ]
     empty_per_or = {b["or_idx"]: _empty_or(b["or_idx"]) for b in blocks}
+
+    # CAMBIO CRÍTICO: Obtenemos el t_max real del bloque activo o usamos un fallback seguro
+    _active_t_max = next((b["t_max"] for b in active if b["t_max"] > 0), 0)
+    if _active_t_max == 0:
+        # Si no hay bloques activos con t_max asignado, buscamos en los inactivos (para mantener consistencia)
+        _active_t_max = next((b["t_max"] for b in blocks if b["t_max"] > 0), 720)
+        
+    n_slots = _active_t_max // slot_size if _active_t_max else 0
 
     if not active or n_slots == 0:
         return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": empty_per_or}
@@ -52,7 +58,11 @@ def solve_mip_for_shift(
         for s in b["surgeons"]:
             if s.id in surgeon_window:
                 continue
-            s_start, s_end = s.get_range_for_block(day_idx, is_morning)
+            
+            # CAMBIO CRÍTICO: Le pasamos _active_t_max a models.py para que calcule el rango 
+            # basándose en las 12 horas reales (720 min) y no herede el default viejo de 4 horas (240 min).
+            s_start, s_end = s.get_range_for_block(day_idx, is_morning, block_duration_min=_active_t_max)
+            
             if s_start == s_end == 0:
                 surgeon_window[s.id] = (0, 0)
             else:
@@ -84,6 +94,10 @@ def solve_mip_for_shift(
                 if forced is not None and s.id != forced:
                     continue
 
+                proc_id = getattr(p, "procedure_id", None)
+                if proc_id is not None and proc_id not in s.enabled_procedures_ids:
+                    continue
+
                 ws, we = surgeon_window.get(s.id, (0, 0))
                 if we <= ws:
                     continue
@@ -97,7 +111,7 @@ def solve_mip_for_shift(
     if not x:
         return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": empty_per_or}
 
-    # 6. Función Objetivo Limpia (Sin términos de dispersión espacial)
+    # 6. Función Objetivo Limpia
     t_max_total = sum(b["t_max"] for b in active)
     x_items = list(x.items())
 
@@ -120,7 +134,7 @@ def solve_mip_for_shift(
 
     # 7. Restricciones del Modelo
 
-    # R1 — Unicidad: Cada paciente se opera como máximo una vez en el turno
+    # R1 — Unicidad
     all_pids = {p.id for b in active for p in b["patients"]}
     for p_id in all_pids:
         terms = x_by_patient.get(p_id, [])
@@ -137,7 +151,7 @@ def solve_mip_for_shift(
             x_by_or_slot[(q, k)].append(var)
             x_by_surgeon_slot[(sid, k)].append(var)
 
-    # R2 — No solapamiento en Quirófanos (Capacidad de Sala)
+    # R2 — No solapamiento en Quirófanos
     for b in active:
         q = b["or_idx"]
         for k in range(n_slots):
@@ -145,7 +159,7 @@ def solve_mip_for_shift(
             if terms:
                 prob += lpSum(terms) <= 1
 
-    # R3 — Sincronización del Staff: Un cirujano no puede duplicarse en el mismo slot k
+    # R3 — Sincronización del Staff
     all_sids = {s.id for b in active for s in b["surgeons"]}
     for s_id in all_sids:
         for k in range(n_slots):
@@ -154,7 +168,7 @@ def solve_mip_for_shift(
                 prob += lpSum(terms) <= 1
 
     # 8. Resolver
-    prob.solve(PULP_CBC_CMD(msg=0, timeLimit=10))
+    prob.solve(PULP_CBC_CMD(msg=0, timeLimit=0.5))
 
     # 9. Extraer Cronograma Detallado
     z_final  = value(prob.objective) or 0.0

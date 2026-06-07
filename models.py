@@ -26,6 +26,14 @@ class Specialty:
     max_blocks: int = 10
 
 @dataclass
+class Procedure:
+    """Representa un procedimiento quirúrgico del nomenclador."""
+    id: int
+    name: str
+    specialty_id: int
+    required_room_type: str  # "alta_complejidad" | "media_complejidad" | "baja_complejidad"
+
+@dataclass
 class Patient:
     id: int
     specialty_id: int
@@ -42,22 +50,30 @@ class Staff:
     role: str
     enabled_procedures_ids: List[int] = field(default_factory=list) # Matriz de competencias reales
     availability_hours: Dict[int, Tuple[int, int]] = field(default_factory=dict) # {dia_idx: (min_inicio, min_fin)}
+    main_specialty_id: int = 0
 
-    def get_range_for_block(self, day_idx: int, is_morning: bool) -> Tuple[int, int]:
-        """Calcula la intersección horaria entre el contrato del médico y el bloque físico."""
-        if day_idx not in self.availability_hours:
-            return (0, 0)
-        
-        b_start, b_end = (480, 720) if is_morning else (780, 1020)
-        s_start, s_end = self.availability_hours[day_idx]
-        
-        overlap_start = max(b_start, s_start)
-        overlap_end = min(b_end, s_end)
-        
-        return (overlap_start, overlap_end) if overlap_start < overlap_end else (0, 0)
+    # Modificá estos métodos dentro de la clase Staff en models.py
+    def get_range_for_block(self, day_idx: int, is_morning: bool, block_duration_min: int = 720) -> Tuple[int, int]:
+            """Calcula la intersección horaria entre el contrato del médico y el bloque físico dinámico."""
+            if day_idx not in self.availability_hours:
+                return (0, 0)
+            
+            # El bloque arranca a las 08:00 (480) o 13:00 (780) según el turno
+            b_start = 480 if is_morning else 780
+            b_end = b_start + block_duration_min
+            
+            s_start, s_end = self.availability_hours[day_idx]
+            
+            # Intersección matemática (Matemática de intervalos para tu tesis)
+            overlap_start = max(b_start, s_start)
+            overlap_end = min(b_end, s_end)
+            
+            return (overlap_start, overlap_end) if overlap_start < overlap_end else (0, 0)
 
-    def get_available_minutes_in_block(self, day_idx: int, is_morning: bool) -> int:
-        start, end = self.get_range_for_block(day_idx, is_morning)
+    def get_available_minutes_in_block(self, day_idx: int, is_morning: bool, block_duration_min: int = 720) -> int:
+        """Calcula los minutos netos disponibles del médico dentro de los límites del bloque dinámico."""
+        # REUTILIZÁS la función de arriba pasando el parámetro dinámico
+        start, end = self.get_range_for_block(day_idx, is_morning, block_duration_min)
         return end - start
 
 @dataclass

@@ -7,7 +7,7 @@ from threading import Lock
 from typing import List, Tuple, Dict, Optional
 import numpy as np
 
-from models import OperatingRoom, Specialty, Patient, GAConfig, Staff
+from models import OperatingRoom, Specialty, Procedure, Patient, GAConfig, Staff
 from mip import solve_mip_for_shift
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -42,10 +42,11 @@ class GeneticAlgorithm:
         operating_rooms: List[OperatingRoom],
         specialties: List[Specialty],
         patients_by_specialty: Dict[int, List[Patient]],
-        staff_list: List[Staff]
+        staff_list: List[Staff],
+        procedures_by_specialty: Optional[Dict[int, List[Procedure]]] = None,
     ):
         self.cfg = config
-        self.operating_rooms = operating_rooms  # Mantenemos este nombre consistente en toda la clase
+        self.operating_rooms = operating_rooms  
         self.specialties = specialties
         self.patients_by_specialty = patients_by_specialty
         self.staff_list = staff_list 
@@ -68,18 +69,52 @@ class GeneticAlgorithm:
         self._cache_lock: Lock = Lock()
         
         self.slot_size = config.slot_size_min
-
-        # Nomenclador de procedimientos por especialidad idéntico al del main
-        self.procedures_by_specialty = {
-            1: [101, 102, 103], # Traumatología
-            2: [201, 202, 203], # Cirugía General
-            3: [301, 302],      # Neurología
-            4: [401, 402],      # Urología
-            5: [501, 502],      # Ginecología
-            6: [601, 602],      # Cardiología
-            7: [701, 702],      # Otorrinolaringología
-            8: [801, 802]       # Oftalmología
+        self.procedures_by_specialty = procedures_by_specialty or {}
+        self._procedure_by_id: Dict[int, Procedure] = {
+            proc.id: proc
+            for procs in self.procedures_by_specialty.values()
+            for proc in procs
         }
+
+    def _specialty_procedures(self, specialty_id: int) -> List[Procedure]:
+        return self.procedures_by_specialty.get(specialty_id, [])
+
+    def _procedure_room_type(self, procedure_id: int) -> Optional[str]:
+        procedure = self._procedure_by_id.get(procedure_id)
+        return procedure.required_room_type if procedure is not None else None
+
+    def _compatible_procedures_for_room(self, specialty_id: int, or_type: str) -> List[Procedure]:
+        return [
+            proc
+            for proc in self._specialty_procedures(specialty_id)
+            if {"baja_complejidad": 0, "media_complejidad": 1, "alta_complejidad": 2}.get(proc.required_room_type, 0) \
+            <= {"baja_complejidad": 0, "media_complejidad": 1, "alta_complejidad": 2}.get(or_type, 0)
+        ]
+
+    def _specialty_valid_for_or(self, specialty_id: int, or_idx: int, day: int, shift: int) -> bool:
+        if specialty_id == 0:
+            return True
+
+        or_obj = self._or_by_idx[or_idx]
+        if not or_obj.availability[day][shift]:
+            return False
+
+        compatible_procs = self._compatible_procedures_for_room(specialty_id, or_obj.or_type)
+        if not compatible_procs:
+            return False
+
+        is_morning = (shift == 0)
+        compatible_proc_ids = {proc.id for proc in compatible_procs}
+
+        for staff in self.staff_list:
+            # CAMBIO CRÍTICO: Para validar la especialidad macro en la grilla del AG, 
+            # el médico debe tener esta especialidad como principal (main_specialty_id)
+            if staff.role == "cirujano" and staff.main_specialty_id == specialty_id:
+                has_competence = any(pid in staff.enabled_procedures_ids for pid in compatible_proc_ids)
+                if has_competence and staff.get_available_minutes_in_block(day, is_morning) > 0:
+                    return True
+
+        return False
 
     # ─── 2.1 INICIALIZACIÓN ───────────────────────────────────────────────
 
@@ -107,26 +142,9 @@ class GeneticAlgorithm:
             return [0]
 
         valid = [0]
-        is_morning = (shift == 0)
-
-        for s in self.specialties:
-            if s.id == 0:
-                continue
-                
-            if or_obj.or_type not in s.compatible_or_types:
-                continue
-                
-            proc_pool = self.procedures_by_specialty.get(s.id, [])
-            has_staff = False
-            
-            for staff in self.staff_list:
-                has_competence = any(pid in staff.enabled_procedures_ids for pid in proc_pool)
-                if has_competence and staff.get_available_minutes_in_block(day, is_morning) > 0:
-                    has_staff = True
-                    break
-                        
-            if has_staff:
-                valid.append(s.id)
+        for specialty in self.specialties:
+            if self._specialty_valid_for_or(specialty.id, or_idx, day, shift):
+                valid.append(specialty.id)
                 
         return valid
 
@@ -164,13 +182,21 @@ class GeneticAlgorithm:
                                 "patients": [], "surgeons": [], "t_max": 0})
                 continue
 
-            # CORRECCIÓN: Filtrar staff usando los códigos de procedimientos de la especialidad asignada
-            proc_pool = self.procedures_by_specialty.get(spec_id, [])
+            compatible_procs = self._compatible_procedures_for_room(spec_id, or_.or_type)
+            compatible_proc_ids = {proc.id for proc in compatible_procs}
+            if not compatible_proc_ids:
+                blocks.append({"or_idx": q, "spec_id": spec_id,
+                                "patients": [], "surgeons": [], "t_max": 0})
+                continue
+
+            # CAMBIO CRÍTICO: Filtramos cirujanos RESTRINGIENDO estrictamente a los que 
+            # tienen asignada esta especialidad como su especialidad principal (main_specialty_id)
             surgeons = [
                 s for s in self.staff_list
                 if s.role == "cirujano"
-                and any(pid in s.enabled_procedures_ids for pid in proc_pool)
-                and s.get_available_minutes_in_block(d, is_morning) > 0
+                and s.main_specialty_id == spec_id
+                and any(pid in s.enabled_procedures_ids for pid in compatible_proc_ids)
+                and s.get_available_minutes_in_block(d, is_morning, self.cfg.block_duration_min) > 0
             ]
 
             if not surgeons:
@@ -182,6 +208,7 @@ class GeneticAlgorithm:
             patients = [
                 p for p in self.patients_by_specialty.get(spec_id, [])
                 if p.id not in pacientes_excluidos
+                and getattr(p, "procedure_id", None) in compatible_proc_ids
                 and (getattr(p, "forced_surgeon_id", None) is None
                      or p.forced_surgeon_id in surgeons_ids)
             ]
@@ -300,13 +327,8 @@ class GeneticAlgorithm:
                             chrom[d, t, q] = self._random_specialty_for(q, d, t)
                         else:
                             d2, t2, q2 = random.randrange(self.n_days), random.randrange(self.n_shifts), random.randrange(self.n_ors)
-                            or_dest1 = self._or_by_idx[q]
-                            or_dest2 = self._or_by_idx[q2]
-                            spec1 = self._spec_by_id.get(int(chrom[d, t, q]))
-                            spec2 = self._spec_by_id.get(int(chrom[d2, t2, q2]))
-                            
-                            comp1 = (spec1.id == 0 or or_dest2.or_type in spec1.compatible_or_types)
-                            comp2 = (spec2.id == 0 or or_dest1.or_type in spec2.compatible_or_types)
+                            comp1 = self._specialty_valid_for_or(int(chrom[d, t, q]), q2, d2, t2)
+                            comp2 = self._specialty_valid_for_or(int(chrom[d2, t2, q2]), q, d, t)
                             
                             if comp1 and comp2:
                                 chrom[d, t, q], chrom[d2, t2, q2] = int(chrom[d2, t2, q2]), int(chrom[d, t, q])
