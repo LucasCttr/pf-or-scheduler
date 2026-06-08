@@ -87,11 +87,13 @@ class PlanningRequest(BaseModel):
 class PlanningStatusResponse(BaseModel):
     uuid: str
     status: JobStatus
+    progress_percentage: int = 0
 
 
 class PlanningJob(BaseModel):
     uuid: str
     status: JobStatus
+    progress_percentage: int = 0
     error_message: str | None = None
     duration_seconds: float | None = None
 
@@ -113,7 +115,7 @@ def create_planning(payload: PlanningRequest) -> PlanningStatusResponse:
     with _jobs_lock:
         _jobs[job_uuid] = job
     _executor.submit(_run_job, job_uuid, payload)
-    return PlanningStatusResponse(uuid=job_uuid, status="planning")
+    return PlanningStatusResponse(uuid=job_uuid, status="planning", progress_percentage=0)
 
 
 @app.get("/planning/{job_uuid}", response_model=PlanningStatusResponse)
@@ -122,13 +124,17 @@ def get_planning_status(job_uuid: str) -> PlanningStatusResponse:
         job = _jobs.get(job_uuid)
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Planning job not found")
-    return PlanningStatusResponse(uuid=job.uuid, status=job.status)
+    return PlanningStatusResponse(
+        uuid=job.uuid,
+        status=job.status,
+        progress_percentage=job.progress_percentage,
+    )
 
 
 def _run_job(job_uuid: str, payload: PlanningRequest) -> None:
     start = time.perf_counter()
     try:
-        result = run_planning(payload)
+        result = run_planning(payload, lambda progress: _update_job_progress(job_uuid, progress))
     except Exception as exc:  # pragma: no cover - defensive background boundary
         elapsed = round(time.perf_counter() - start, 3)
         _update_job(job_uuid, "failed", error_message=str(exc), duration_seconds=elapsed)
@@ -145,7 +151,7 @@ def _run_job(job_uuid: str, payload: PlanningRequest) -> None:
 
     elapsed = round(time.perf_counter() - start, 3)
     result["duracion_segundos"] = elapsed
-    _update_job(job_uuid, "completed", duration_seconds=elapsed)
+    _update_job(job_uuid, "completed", duration_seconds=elapsed, progress_percentage=100)
     _send_callback(
         {
             "uuid": job_uuid,
@@ -157,7 +163,7 @@ def _run_job(job_uuid: str, payload: PlanningRequest) -> None:
     )
 
 
-def run_planning(payload: PlanningRequest) -> dict[str, Any]:
+def run_planning(payload: PlanningRequest, progress_callback=None) -> dict[str, Any]:
     random.seed(42)
     try:
         import numpy as np
@@ -218,7 +224,7 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
             for specialty_id, procedure_ids in payload.procedures_by_specialty.items()
         }
 
-    best = ga.run()
+    best = ga.run(progress_callback=progress_callback)
     agenda, _ = reconstruct_agenda(
         ga,
         best,
@@ -248,12 +254,22 @@ def _update_job(
     *,
     error_message: str | None = None,
     duration_seconds: float | None = None,
+    progress_percentage: int | None = None,
 ) -> None:
     with _jobs_lock:
         job = _jobs[job_uuid]
         job.status = status_value
         job.error_message = error_message
         job.duration_seconds = duration_seconds
+        if progress_percentage is not None:
+            job.progress_percentage = max(0, min(100, progress_percentage))
+
+
+def _update_job_progress(job_uuid: str, progress_percentage: int) -> None:
+    with _jobs_lock:
+        job = _jobs.get(job_uuid)
+        if job is not None and job.status == "planning":
+            job.progress_percentage = max(0, min(99, progress_percentage))
 
 
 def _send_callback(payload: dict[str, Any]) -> None:

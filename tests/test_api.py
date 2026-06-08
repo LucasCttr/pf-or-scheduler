@@ -19,6 +19,7 @@ def test_create_planning_returns_uuid_and_planning_status(monkeypatch):
     payload = response.json()
     assert payload["uuid"]
     assert payload["status"] == "planning"
+    assert payload["progress_percentage"] == 0
     assert submitted
 
 
@@ -36,7 +37,11 @@ def test_get_planning_status(monkeypatch):
     response = client.get(f"/planning/{created['uuid']}")
 
     assert response.status_code == 200
-    assert response.json() == {"uuid": created["uuid"], "status": "planning"}
+    assert response.json() == {
+        "uuid": created["uuid"],
+        "status": "planning",
+        "progress_percentage": 0,
+    }
 
 
 def test_get_unknown_planning_returns_404():
@@ -50,7 +55,10 @@ def test_get_unknown_planning_returns_404():
 def test_run_job_success_sends_completed_callback(monkeypatch):
     callbacks = []
 
-    monkeypatch.setattr("api.run_planning", lambda payload: {"resumen": {"pacientes_programados": 1}})
+    monkeypatch.setattr(
+        "api.run_planning",
+        lambda payload, progress_callback=None: {"resumen": {"pacientes_programados": 1}},
+    )
     monkeypatch.setattr("api._send_callback", lambda payload: callbacks.append(payload))
 
     from api import PlanningJob, PlanningRequest, _jobs, _run_job
@@ -61,6 +69,7 @@ def test_run_job_success_sends_completed_callback(monkeypatch):
     _run_job(job_uuid, PlanningRequest.model_validate(_minimal_payload()))
 
     assert _jobs[job_uuid].status == "completed"
+    assert _jobs[job_uuid].progress_percentage == 100
     assert callbacks[0]["uuid"] == job_uuid
     assert callbacks[0]["status"] == "completed"
     assert callbacks[0]["output_payload"]["resumen"] == {"pacientes_programados": 1}
@@ -69,7 +78,7 @@ def test_run_job_success_sends_completed_callback(monkeypatch):
 def test_run_job_failure_sends_failed_callback(monkeypatch):
     callbacks = []
 
-    def fail(_):
+    def fail(_, progress_callback=None):
         raise RuntimeError("boom")
 
     monkeypatch.setattr("api.run_planning", fail)
@@ -86,6 +95,17 @@ def test_run_job_failure_sends_failed_callback(monkeypatch):
     assert callbacks[0]["uuid"] == job_uuid
     assert callbacks[0]["status"] == "failed"
     assert callbacks[0]["error_message"] == "boom"
+
+
+def test_update_job_progress_caps_at_99():
+    from api import PlanningJob, _jobs, _update_job_progress
+
+    job_uuid = "job-progress"
+    _jobs[job_uuid] = PlanningJob(uuid=job_uuid, status="planning")
+
+    _update_job_progress(job_uuid, 120)
+
+    assert _jobs[job_uuid].progress_percentage == 99
 
 
 def _minimal_payload():

@@ -337,7 +337,7 @@ class GeneticAlgorithm:
         return penalty
 
     # ─── 2.5 LOOP PRINCIPAL ───────────────────────────────────────────────
-    def run(self) -> Individual:
+    def run(self, progress_callback=None) -> Individual:
         self.history = []
         print("▶  Inicializando población...")
         population = self.initialize_population()
@@ -349,6 +349,8 @@ class GeneticAlgorithm:
 
         print(f"\n{'Gen':>5}  {'Mejor fitness':>16}  {'Promedio':>10}  {'Sin mejora':>10}")
         print("─" * 50)
+        if progress_callback is not None:
+            progress_callback(1)
 
         for gen in range(self.cfg.max_generations):
             new_population = [population[i].copy() for i in range(self.cfg.elite_count)]
@@ -373,6 +375,9 @@ class GeneticAlgorithm:
                 generations_no_improve = 0
             else:
                 generations_no_improve += 1
+
+            if progress_callback is not None:
+                progress_callback(round(((gen + 1) / max(self.cfg.max_generations, 1)) * 99))
 
             if gen % 10 == 0:
                 avg = sum(ind.fitness for ind in population) / len(population)
