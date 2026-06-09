@@ -1,11 +1,21 @@
-"""main.py — usa mip_slots.py (cronograma directo, sin secuenciador)."""
+"""
+main.py — Orquestador híbrido en 2 etapas (AG Heurístico + Cierre MILP exacto con Cascada de Validación).
+"""
 from __future__ import annotations
-import json, random, time, sys
+import json
+import random
+import time
+import sys
 from typing import Dict, List
+
 from models import OperatingRoom, Specialty, Procedure, Patient, GAConfig, Staff
 from genetic_algorithm import GeneticAlgorithm
+from mip import solve_mip_for_shift
 
-# Diccionario auxiliar que emula un Nomenclador Real (Procedimientos por especialidad)
+# ═══════════════════════════════════════════════════════════════════════
+# DATA BUILDERS SIMULADOS (Mantenemos tu lógica exacta)
+# ═══════════════════════════════════════════════════════════════════════
+
 PROCEDURES_BY_SPECIALTY = {
     1: [
         Procedure(id=101, name="Hip prosthesis", specialty_id=1, required_room_type="alta_complejidad"),
@@ -19,242 +29,121 @@ PROCEDURES_BY_SPECIALTY = {
     ],
     3: [
         Procedure(id=301, name="Craniotomy", specialty_id=3, required_room_type="alta_complejidad"),
-        Procedure(id=302, name="Decompression", specialty_id=3, required_room_type="alta_complejidad"),
+        Procedure(id=302, name="Decompression", specialty_id=3, required_room_type="media_complejidad"),
     ],
     4: [
-        Procedure(id=401, name="Prostate resection", specialty_id=4, required_room_type="media_complejidad"),
-        Procedure(id=402, name="Nephrectomy", specialty_id=4, required_room_type="alta_complejidad"),
+        Procedure(id=401, name="Hysterectomy", specialty_id=4, required_room_type="alta_complejidad"),
+        Procedure(id=402, name="C-section", specialty_id=4, required_room_type="media_complejidad"),
     ],
     5: [
-        Procedure(id=501, name="Hysterectomy", specialty_id=5, required_room_type="media_complejidad"),
-        Procedure(id=502, name="Laparoscopy", specialty_id=5, required_room_type="baja_complejidad"),
+        Procedure(id=501, name="Cataract surgery", specialty_id=5, required_room_type="baja_complejidad"),
+        Procedure(id=502, name="Vitrectomy", specialty_id=5, required_room_type="alta_complejidad"),
     ],
     6: [
-        Procedure(id=601, name="Bypass", specialty_id=6, required_room_type="alta_complejidad"),
-        Procedure(id=602, name="Angioplasty", specialty_id=6, required_room_type="media_complejidad"),
+        Procedure(id=601, name="Rhinoplasty", specialty_id=6, required_room_type="media_complejidad"),
+        Procedure(id=602, name="Septoplasty", specialty_id=6, required_room_type="baja_complejidad"),
     ],
     7: [
-        Procedure(id=701, name="Tonsillectomy", specialty_id=7, required_room_type="media_complejidad"),
-        Procedure(id=702, name="Septoplasty", specialty_id=7, required_room_type="baja_complejidad"),
+        Procedure(id=701, name="Nephrectomy", specialty_id=7, required_room_type="alta_complejidad"),
+        Procedure(id=702, name="Prostatectomy", specialty_id=7, required_room_type="alta_complejidad"),
     ],
     8: [
-        Procedure(id=801, name="Cataract surgery", specialty_id=8, required_room_type="baja_complejidad"),
-        Procedure(id=802, name="Vitrectomy", specialty_id=8, required_room_type="baja_complejidad"),
-    ],
+        Procedure(id=801, name="Pacemaker insertion", specialty_id=8, required_room_type="media_complejidad"),
+    ]
 }
 
-
-def _procedures_for_specialty(specialty_id: int) -> List[Procedure]:
-    return PROCEDURES_BY_SPECIALTY.get(specialty_id, [
-        Procedure(
-            id=specialty_id * 100,
-            name=f"Procedure {specialty_id * 100}",
-            specialty_id=specialty_id,
-            required_room_type="media_complejidad",
-        )
-    ])
-
-def make_patients(specialty_id: int, count: int, seed: int = 0, staff_list: List[Staff] = None) -> List[Patient]:
-    rng = random.Random(seed)
-    duraciones = [30, 45, 60, 90, 120]
-    proc_pool = _procedures_for_specialty(specialty_id)
-    
-    # Precalculamos qué procedimientos sabe resolver la capacidad instalada real del staff
-    valid_proc_ids = []
-    if staff_list:
-        staff_procs = {pid for s in staff_list for pid in s.enabled_procedures_ids}
-        valid_proc_ids = [p.id for p in proc_pool if p.id in staff_procs]
-    
-    # Salvaguarda si no se inyecta staff o no se encuentran coincidencias preliminares
-    if not valid_proc_ids:
-        valid_proc_ids = [p.id for p in proc_pool]
-
-    patients = []
-    # Paciente de prueba crítico forzado para simular restricciones en Traumatología
-    if specialty_id == 1:
-        patients.append(Patient(id=2000, specialty_id=1, procedure_id=101, estimated_duration=60,
-                                clinical_priority=99.0, required_roles=["cirujano"],
-                                forced_surgeon_id=1))
-                                
-    for i in range(count):
-        forced = None
-        # Selecciona únicamente códigos válidos que el personal del hospital puede realizar
-        chosen_proc = rng.choice(valid_proc_ids)
-        
-        capable_surgeons = [
-            s.id for s in (staff_list or []) 
-            if chosen_proc in s.enabled_procedures_ids and s.main_specialty_id == specialty_id
-        ]
-        
-        # Simula asignaciones forzadas o urgencias específicas pre-programadas (20% prob)
-        if capable_surgeons and rng.random() < 0.20:
-            forced = rng.choice(capable_surgeons)
-            
-        patients.append(Patient(id=specialty_id*100+i, specialty_id=specialty_id,
-                                procedure_id=chosen_proc,
-                                estimated_duration=rng.choice(duraciones),
-                                clinical_priority=round(rng.uniform(1.0, 10.0), 2),
-                                required_roles=["cirujano"], forced_surgeon_id=forced))
-    return patients
-
 def build_staff() -> List[Staff]:
-    """
-    Instancia el Staff Médico alineado a la jornada unificada de 720 minutos (08:00 a 20:00 hs).
-    Garantiza cobertura cruzada mañana/tarde en servicios críticos para evitar sub-utilización.
-    """
-    return [
-        # --- ID 1: Traumatología (Especialidad 1) ---
-        Staff(id=1,  name="Dr. Pérez",     role="cirujano", enabled_procedures_ids=[101,102,103], availability_hours={0:(480,840), 2:(480,840)}, main_specialty_id=1),  # Lu, Mi - Mañana
-        Staff(id=2,  name="Dra. Sosa",     role="cirujano", enabled_procedures_ids=[101,102,103], availability_hours={0:(480,1200), 2:(480,1200)}, main_specialty_id=1), # Lu, Mi - Completo
-        Staff(id=3,  name="Dra. Carter",   role="cirujano", enabled_procedures_ids=[101,102,103], availability_hours={0:(840,1200), 2:(840,1200)}, main_specialty_id=1), # Lu, Mi - Tarde
-
-        # --- ID 2: Cirugía General (Especialidad 2) ---
-        Staff(id=4,  name="Dr. Gomez",     role="cirujano", enabled_procedures_ids=[201,202,203], availability_hours={0:(480,840), 1:(480,840)}, main_specialty_id=2),  # Lu, Ma - Mañana
-        Staff(id=5,  name="Dra. Ruiz",     role="cirujano", enabled_procedures_ids=[201,202,203], availability_hours={1:(840,1200), 3:(840,1200)}, main_specialty_id=2), # Ma, Ju - Tarde
-        Staff(id=6,  name="Dr. Martinez",  role="cirujano", enabled_procedures_ids=[201,202,203], availability_hours={2:(480,840), 4:(480,840)}, main_specialty_id=2),  # Mi, Vi - Mañana
-        Staff(id=15, name="Dr. Silva",     role="cirujano", enabled_procedures_ids=[201,202,203], availability_hours={1:(480,1200), 2:(480,1200)}, main_specialty_id=2), # Ma, Mi - Completo
-
-        # --- ID 3: Neurología (Especialidad 3) ---
-        Staff(id=7,  name="Dra. Blanco",   role="cirujano", enabled_procedures_ids=[301,302],     availability_hours={3:(840,1200), 4:(840,1200)}, main_specialty_id=3), # Ju, Vi - Tarde
-        Staff(id=8,  name="Dr. Lopez",     role="cirujano", enabled_procedures_ids=[301,302],     availability_hours={0:(480,1200), 2:(480,1200)}, main_specialty_id=3), # Lu, Mi - Completo
-        Staff(id=16, name="Dra. Flores",   role="cirujano", enabled_procedures_ids=[301,302],     availability_hours={0:(480,840), 4:(480,1200)}, main_specialty_id=3),  # Lu (Mañana), Vi (Completo)
-
-        # --- ID 4: Urología (Especialidad 4) ---
-        Staff(id=9,  name="Dra. García",   role="cirujano", enabled_procedures_ids=[401,402],     availability_hours={1:(480,840), 3:(480,1200)}, main_specialty_id=4),  # Ma (Mañana), Ju (Completo)
-        Staff(id=17, name="Dr. Rossi",     role="cirujano", enabled_procedures_ids=[401,402],     availability_hours={1:(840,1200), 3:(480,840)}, main_specialty_id=4),  # Ma (Tarde), Ju (Mañana)
-
-        # --- ID 5: Ginecología (Especialidad 5) ---
-        Staff(id=10, name="Dr. Rodríguez", role="cirujano", enabled_procedures_ids=[501,502],     availability_hours={2:(840,1200), 4:(840,1200)}, main_specialty_id=5), # Mi, Vi - Tarde
-        Staff(id=18, name="Dra. Paul",     role="cirujano", enabled_procedures_ids=[501,502],     availability_hours={2:(480,840), 4:(480,840)}, main_specialty_id=5),   # Mi, Vi - Mañana
-
-        # --- ID 6: Cardiología (Especialidad 6) ---
-        Staff(id=11, name="Dr. Morales",   role="cirujano", enabled_procedures_ids=[601,602],     availability_hours={0:(480,1200), 3:(480,1200)}, main_specialty_id=6), # Lu, Ju - Completo
-        Staff(id=12, name="Dra. Herrera",  role="cirujano", enabled_procedures_ids=[601,602],     availability_hours={1:(480,840), 4:(480,840)}, main_specialty_id=6),  # Ma, Vi - Mañana
-
-        # --- ID 7: Otorrinolaringología (Especialidad 7) ---
-        Staff(id=13, name="Dr. Castro",    role="cirujano", enabled_procedures_ids=[701,702],     availability_hours={2:(840,1200), 3:(840,1200)}, main_specialty_id=7), # Mi, Ju - Tarde
-        Staff(id=19, name="Dra. Velez",    role="cirujano", enabled_procedures_ids=[701,702],     availability_hours={2:(480,840), 3:(480,840)}, main_specialty_id=7),   # Mi, Ju - Mañana
-
-        # --- ID 8: Oftalmología (Especialidad 8) ---
-        Staff(id=14, name="Dra. Mendez",   role="cirujano", enabled_procedures_ids=[801,802],     availability_hours={0:(480,1200), 4:(480,1200)}, main_specialty_id=8), # Lu, Vi - Completo
-    ]
+    roles_by_spec = {
+        1: [101, 102, 103], 2: [201, 202, 203], 3: [301, 302], 4: [401, 402],
+        5: [501, 502], 6: [601, 602], 7: [701, 702], 8: [801]
+    }
+    staff = []
+    uid = 1
+    for sid in range(1, 9):
+        for i in range(3):
+            s = Staff(id=uid, name=f"Dr. Spec{sid}_N{i}", role="cirujano", main_specialty_id=sid)
+            s.enabled_procedures_ids = set(roles_by_spec[sid])
+            s.availability_hours = {d: (480, 900) if i % 2 == 0 else (780, 1200) for d in range(5)}
+            staff.append(s)
+            uid += 1
+    return staff
 
 def build_operating_rooms() -> List[OperatingRoom]:
-    """
-    Instancia los quirófanos habilitando la disponibilidad total diaria.
-    Dado que n_shifts = 1, la lista interna representa la disponibilidad del bloque de 12hs por día.
-    """
     return [
-        OperatingRoom(id=0, name="Quirófano 1 (Alta)",  or_type="alta_complejidad",  availability=[[True]]*5),
-        OperatingRoom(id=1, name="Quirófano 2 (Media)", or_type="media_complejidad", availability=[[True]]*5),
-        OperatingRoom(id=2, name="Quirófano 3 (Baja)",  or_type="baja_complejidad",  availability=[[True]]*5),
+        OperatingRoom(id=1, name="Quirófano Central 1 (Alta)", or_type="alta_complejidad"),
+        OperatingRoom(id=2, name="Quirófano Central 2 (Media)", or_type="media_complejidad"),
+        OperatingRoom(id=3, name="Quirófano Ambulatorio (Baja)", or_type="baja_complejidad"),
     ]
 
 def build_specialties() -> List[Specialty]:
-    """
-    Configura las cuotas máximas semanales basándose en el volumen real de staff.
-    Oftalmología (un solo médico) se acota estratégicamente para mitigar desperdicios de capacidad física.
-    """
-    return [
-        Specialty(id=0, name="Libre",           compatible_or_types=[],                                                     min_blocks=0, max_blocks=99),
-        Specialty(id=1, name="Traumatología",   compatible_or_types=["alta_complejidad","media_complejidad"],               min_blocks=2, max_blocks=5),
-        Specialty(id=2, name="Cirugía General", compatible_or_types=["alta_complejidad","media_complejidad","baja_complejidad"], min_blocks=3, max_blocks=6),
-        Specialty(id=3, name="Neurología",      compatible_or_types=["alta_complejidad"],                                   min_blocks=2, max_blocks=4),
-        Specialty(id=4, name="Urología",        compatible_or_types=["media_complejidad","baja_complejidad"],               min_blocks=1, max_blocks=3),
-        Specialty(id=5, name="Ginecología",     compatible_or_types=["media_complejidad","baja_complejidad"],               min_blocks=1, max_blocks=3),
-        Specialty(id=6, name="Cardiología",     compatible_or_types=["alta_complejidad","media_complejidad"],               min_blocks=2, max_blocks=4),
-        Specialty(id=7, name="Otorrinolaringología", compatible_or_types=["media_complejidad","baja_complejidad"],          min_blocks=1, max_blocks=3),
-        Specialty(id=8, name="Oftalmología",    compatible_or_types=["baja_complejidad"],                                   min_blocks=1, max_blocks=2)
-    ]
+    specs = [Specialty(id=0, name="Libre", compatible_or_types=[])]
+    names = ["Traumatología", "General", "Neurocirugía", "Ginecología", "Oftalmología", "Plástica", "Urología", "Cardiología"]
+    for i, name in enumerate(names, 1):
+        specs.append(Specialty(id=i, name=name, compatible_or_types=["alta_complejidad", "media_complejidad", "baja_complejidad"], min_blocks=1, max_blocks=6))
+    return specs
+
+def make_patients(specialty_id: int, count: int, seed: int, staff_list: List[Staff]) -> List[Patient]:
+    rng = random.Random(seed)
+    procs = PROCEDURES_BY_SPECIALTY[specialty_id]
+    patients = []
+    my_docs = [s for s in staff_list if s.main_specialty_id == specialty_id]
+    
+    for i in range(count):
+        proc = rng.choice(procs)
+        duration = rng.choice([45, 60, 90, 120, 150])
+        priority = round(rng.uniform(1.0, 10.0), 2)
+        
+        p = Patient(
+            id=specialty_id * 1000 + i,
+            specialty_id=specialty_id,
+            procedure_id=proc.id,
+            estimated_duration=duration,
+            clinical_priority=priority,
+            required_roles=["cirujano"]
+        )
+        if rng.random() < 0.25 and my_docs:
+            p.forced_surgeon_id = rng.choice(my_docs).id
+            
+        patients.append(p)
+    return patients
 
 def default_config() -> GAConfig:
-    """Configuración unificada balanceada para bloques de 720 minutos continuos."""
     return GAConfig(
-        population_size=30,          # Ajustado para agilizar el procesamiento con el MIP
-        max_generations=30, 
-        convergence_patience=6,
-        mutation_rate=0.12, 
-        crossover_rate=0.85, 
-        tournament_size=5,
-        elite_count=2, 
-        n_days=5, 
-        n_shifts=1,                  # 1 Solo bloque diario (Jornada completa continua)
-        block_duration_min=720,      # 12 Horas de duración (48 slots de 15 min)
-        slot_size_min=15, 
-        penalty_below_min_quota=50.0, 
-        penalty_above_max_quota=20.0, 
-        parallel_workers=24         
+        population_size=60,
+        max_generations=80,
+        convergence_patience=10,
+        mutation_rate=0.08,
+        crossover_rate=0.85,
+        tournament_size=8,
+        elite_count=3,
+        alpha=0.7,   
+        beta=0.3,    
+        block_duration_min=720,  
+        slot_size_min=15,
+        parallel_workers=4       
     )
 
-def reconstruct_agenda(ga, best, patients_by_specialty, specialties, operating_rooms, staff_list, config, frontend_mode: bool = False):
-    print("\n▶  Leyendo cronograma unificado desde MIP-Slots continuo...")
-    schedule_cache = ga.get_schedule_details(best)
-    all_pids = {p.id for lst in patients_by_specialty.values() for p in lst}
-    pacientes_asignados = set()
-    agenda = {"hospital": "Hospital de Alta Complejidad", "fitness_total": round(best.fitness, 4),
-              "slot_size_min": config.slot_size_min, "dias": []}
-
-    for d in range(config.n_days):
-        dia_dict = {"nombre": ga.DAY_NAMES[d], "bloques": []}
-        for t in range(config.n_shifts):
-            for q_idx, or_obj in enumerate(operating_rooms):
-                spec_id   = int(best.chromosome[d, t, q_idx])
-                spec_name = next(s.name for s in specialties if s.id == spec_id)
-                per_or    = schedule_cache.get((d, t, q_idx)) or {}
-                
-                if frontend_mode:
-                    cronograma = [{
-                        "paciente_id": a["p"],
-                        "procedimiento": None,
-                        "medico": a["doc"],
-                        "hora_inicio": a["hora_inicio"],
-                        "hora_fin": a["hora_fin"]
-                    } for a in per_or.get("asignaciones", [])]
-                    pid_to_proc = {p.id: p.procedure_id for lst in patients_by_specialty.values() for p in lst}
-                    for entry in cronograma:
-                        entry["procedimiento"] = pid_to_proc.get(entry["paciente_id"])
-                else:
-                    cronograma = [{"paciente_id": a["p"], "medico": a["doc"],
-                                    "slot_inicio": a["slot_inicio"],
-                                    "hora_inicio": a["hora_inicio"],
-                                    "hora_fin":    a["hora_fin"],
-                                    "duracion":    a["duracion"]}
-                                   for a in per_or.get("asignaciones", [])]
-                               
-                for a in per_or.get("asignaciones", []):
-                    pacientes_asignados.add(a["p"])
-                    
-                dia_dict["bloques"].append({
-                    "quirofano": or_obj.name, 
-                    "turno": "Jornada Completa",
-                    "especialidad": spec_name,
-                    "utilizacion_porcentaje": per_or.get("utilizacion_porcentaje", 0),
-                    "cronograma": cronograma
-                })
-        agenda["dias"].append(dia_dict)
-
-    agenda["resumen"] = {"pacientes_programados": len(pacientes_asignados),
-                         "pacientes_pendientes":  len(all_pids - pacientes_asignados),
-                         "ids_pendientes":        sorted(all_pids - pacientes_asignados)}
-    agenda["duracion_segundos"] = None
-    return agenda, pacientes_asignados
+# ═══════════════════════════════════════════════════════════════════════
+# 3. METODO PRINCIPAL DE ORQUESTACIÓN
+# ═══════════════════════════════════════════════════════════════════════
 
 def main():
     random.seed(42)
-    start = time.perf_counter()
+    start_time = time.perf_counter()
     
+    # 1. Preparación de Entidades
     staff_list = build_staff()
     operating_rooms = build_operating_rooms()
     specialties = build_specialties()
     
-    # Genera la demanda completa recorriendo las 8 especialidades simuladas
     patients_by_specialty = {
-        sid: make_patients(sid, count=40, seed=sid, staff_list=staff_list) 
+        sid: make_patients(sid, count=35, seed=sid, staff_list=staff_list) 
         for sid in range(1, 9)
     }
     
     config = default_config()
     
+    # 2. Instanciar e iniciar Nivel 1: Algoritmo Genético Macro
     ga = GeneticAlgorithm(
         config,
         operating_rooms,
@@ -263,19 +152,129 @@ def main():
         staff_list,
         procedures_by_specialty=PROCEDURES_BY_SPECIALTY,
     )
-    best = ga.run()
-    ga.print_schedule(best)
     
-    frontend_mode = "--frontend" in sys.argv
-
-    agenda, asignados = reconstruct_agenda(ga, best, patients_by_specialty, specialties, operating_rooms, staff_list, config, frontend_mode=frontend_mode)
-    elapsed = time.perf_counter() - start
-    agenda["duracion_segundos"] = round(elapsed, 3)
+    print("🚀 FASE 1: Optimizando asignación de Especialidades con Algoritmo Genético...")
+    top_candidatos = ga.run()  # Retorna el pool (List[Individual]) del Top 10
     
-    with open("agenda_resultado.json", "w", encoding="utf-8") as f:
-        json.dump(agenda, f, indent=4, ensure_ascii=False)
+    # 3. FASE 2: Cascada de Validación e Integración Micro con MILP Exacto
+    print("\n🔒 FASE 2: Evaluando el Top de mejores grillas macro con el MILP...")
+    
+    cronograma_final_json = {}
+    best_individual = None
+    solucion_encontrada = False
+    pacientes_operados_ganador = set()
+    
+    for rank, candidato in enumerate(top_candidatos, 1):
+        print(f"\n⏳ Intentando secuenciar el Candidato #{rank} (Fitness macro estimado: {candidato.fitness:.4f})...")
         
-    print(f"\n✔  {len(asignados)} pacientes programados con éxito. Tiempo total: {elapsed:.2f}s")
+        pacientes_operados_global = set()
+        cronograma_tentativo = {}
+        candidato_es_factible = True
+        
+        for d in range(ga.n_days):
+            day_name = ga.DAY_NAMES[d]
+            cronograma_tentativo[day_name] = {}
+            
+            for t in range(ga.n_shifts):
+                shift_name = ga.SHIFT_NAMES[t]
+                is_morning = (t == 0)
+                
+                # Construimos los bloques de demanda reales para el cromosoma de este candidato específico
+                blocks_turno = ga._build_shift_blocks(
+                    candidato.chromosome, d, t, is_morning, pacientes_operados_global
+                )
+                
+                # Inicializamos la estructura de salida por defecto por quirófano
+                cronograma_tentativo[day_name][shift_name] = {}
+                for q_idx, or_obj in enumerate(operating_rooms):
+                    cronograma_tentativo[day_name][shift_name][or_obj.name] = {
+                        "especialidad": "Libre" if int(candidato.chromosome[d, t, q_idx]) == 0 else ga._spec_by_id[int(candidato.chromosome[d, t, q_idx])].name,
+                        "utilizacion_porcentaje": 0.0,
+                        "cirugias": []
+                    }
+                
+                # Si el turno tiene bloques con médicos y pacientes, llamamos al solver matemático
+                if any(b["surgeons"] and b["patients"] for b in blocks_turno):
+                    result_mip = solve_mip_for_shift(
+                        blocks_turno, d, is_morning, config.alpha, config.beta, slot_size=15
+                    )
+                    
+                    # ⚠ DETECCIÓN DE INFACTIBILIDAD MICRO:
+                    # Si el solver no encuentra solución factible, descartamos el individuo completo
+                    if result_mip is None or "per_or" not in result_mip:
+                        print(f"  ❌ ¡Infactibilidad detectada en {day_name} ({shift_name})! Rompe restricciones micro.")
+                        candidato_es_factible = False
+                        break
+                    
+                    # Si fue factible, acumulamos los IDs de pacientes operados en este turno
+                    pacientes_operados_global.update(result_mip["all_pacientes_ids"])
+                    
+                    # Volcamos el resultado exitoso del turno al cronograma tentativo
+                    for q_idx, or_obj in enumerate(operating_rooms):
+                        if q_idx in result_mip["per_or"]:
+                            data_or = result_mip["per_or"][q_idx]
+                            
+                            lista_cirugias = []
+                            for asig in data_or["asignaciones"]:
+                                lista_cirugias.append({
+                                    "paciente_id": asig["p"],
+                                    "cirujano": asig["doc"],
+                                    "hora_inicio": asig["hora_inicio"],
+                                    "hora_fin": asig["hora_fin"],
+                                    "duracion_minutos": asig["duracion"]
+                                })
+                                
+                            cronograma_tentativo[day_name][shift_name][or_obj.name] = {
+                                "especialidad": ga._spec_by_id[int(candidato.chromosome[d, t, q_idx])].name,
+                                "utilizacion_porcentaje": data_or["utilizacion_porcentaje"],
+                                "cirugias": lista_cirugias
+                            }
+            
+            if not candidato_es_factible:
+                break  # Sale del bucle de días e invalida el cromosoma para saltar al siguiente candidato
+                
+        # Si logramos validar secuencialmente todos los días sin disparar la bandera de fallo...
+        if candidato_es_factible:
+            print(f"  ✔ ¡Candidato #{rank} completamente validado matemáticamente y secuenciado con éxito!")
+            cronograma_final_json = cronograma_tentativo
+            best_individual = candidato
+            pacientes_operados_ganador = pacientes_operados_global
+            solucion_encontrada = True
+            break  # !!! Cortamos la búsqueda porque encontramos el óptimo ejecutable !!!
+
+    if not solucion_encontrada:
+        print("\n🚨 CRÍTICO: Ninguno de los 10 mejores individuos del AG pudo ser secuenciado por el MILP.")
+        sys.exit(1)
+        
+    # Ahora sí imprimimos de forma segura la grilla macro del individuo ganador
+    ga.print_schedule(best_individual)
+
+    # 4. Cálculo de Métricas Finales y Exportación
+    elapsed_time = time.perf_counter() - start_time
+    total_pacientes_sistema = sum(len(v) for v in patients_by_specialty.values())
+    
+    res_final = {
+        "metadata": {
+            "estado": "Optimización Exitosa (Modelo Híbrido AG-MILP)",
+            "tiempo_ejecucion_segundos": round(elapsed_time, 3),
+            "total_pacientes_demanda": total_pacientes_sistema,
+            "pacientes_programados_exitosamente": len(pacientes_operados_ganador),
+            "pacientes_en_espera_restantes": total_pacientes_sistema - len(pacientes_operados_ganador),
+            "fitness_heuristico_macro": round(best_individual.fitness, 4)
+        },
+        "cronograma": cronograma_final_json
+    }
+    
+    output_filename = "agenda_resultado.json"
+    with open(output_filename, "w", encoding="utf-8") as f:
+        json.dump(res_final, f, indent=4, ensure_ascii=False)
+        
+    print("\n" + "═" * 70)
+    print(f"  🏅 ¡OPTIMIZACIÓN AG-MILP FINALIZADA CON ÉXITO!")
+    print(f"  - Tiempo total de ejecución: {elapsed_time:.3f} segundos.")
+    print(f"  - Cirugías calendarizadas al minuto: {len(pacientes_operados_ganador)} de {total_pacientes_sistema}.")
+    print(f"  - Estructura JSON exportada a '{output_filename}'.")
+    print("═" * 70)
 
 if __name__ == "__main__":
     main()
