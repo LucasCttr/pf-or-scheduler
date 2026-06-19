@@ -1,6 +1,4 @@
-"""
-main.py — Orquestador híbrido en 2 etapas (AG Heurístico + Cierre MILP exacto con Cascada de Validación).
-"""
+
 from __future__ import annotations
 import json
 import random
@@ -10,11 +8,7 @@ from typing import Dict, List
 
 from models import OperatingRoom, Specialty, Procedure, Patient, GAConfig, Staff
 from genetic_algorithm import GeneticAlgorithm
-from mip import solve_mip_for_shift
-
-# ═══════════════════════════════════════════════════════════════════════
-# DATA BUILDERS SIMULADOS (Mantenemos tu lógica exacta)
-# ═══════════════════════════════════════════════════════════════════════
+from decoder import build_shift_schedule
 
 PROCEDURES_BY_SPECIALTY = {
     1: [
@@ -123,10 +117,6 @@ def default_config() -> GAConfig:
         parallel_workers=4       
     )
 
-# ═══════════════════════════════════════════════════════════════════════
-# 3. METODO PRINCIPAL DE ORQUESTACIÓN
-# ═══════════════════════════════════════════════════════════════════════
-
 def main():
     random.seed(42)
     start_time = time.perf_counter()
@@ -143,7 +133,7 @@ def main():
     
     config = default_config()
     
-    # 2. Instanciar e iniciar Nivel 1: Algoritmo Genético Macro
+    # 2. Instanciar e iniciar el Algoritmo Genético
     ga = GeneticAlgorithm(
         config,
         operating_rooms,
@@ -153,100 +143,40 @@ def main():
         procedures_by_specialty=PROCEDURES_BY_SPECIALTY,
     )
     
-    print("🚀 FASE 1: Optimizando asignación de Especialidades con Algoritmo Genético...")
-    top_candidatos = ga.run()  # Retorna el pool (List[Individual]) del Top 10
+    print("🚀 FASE 1: Optimizando Sistema con Algoritmo Genético + Decodificador Heurístico...")
+    top_candidatos = ga.run()  
     
-    # 3. FASE 2: Cascada de Validación e Integración Micro con MILP Exacto
-    print("\n🔒 FASE 2: Evaluando el Top de mejores grillas macro con el MILP...")
+    # 3. Extraer cronograma final del mejor cromosoma
+    best_individual = top_candidatos[0]
+    print("\n🔒 FASE 2: Extrayendo cronograma final del mejor cromosoma...")
     
-    cronograma_final_json = {}
-    best_individual = None
-    solucion_encontrada = False
+    mejor_cronograma_ganador = {}
     pacientes_operados_ganador = set()
     
-    for rank, candidato in enumerate(top_candidatos, 1):
-        print(f"\n⏳ Intentando secuenciar el Candidato #{rank} (Fitness macro estimado: {candidato.fitness:.4f})...")
+    for d in range(ga.n_days):
+        day_name = ga.DAY_NAMES[d]
+        mejor_cronograma_ganador[day_name] = {}
         
-        pacientes_operados_global = set()
-        cronograma_tentativo = {}
-        candidato_es_factible = True
-        
-        for d in range(ga.n_days):
-            day_name = ga.DAY_NAMES[d]
-            cronograma_tentativo[day_name] = {}
+        for t in range(ga.n_shifts):
+            shift_name = ga.SHIFT_NAMES[t]
+            is_morning = (t == 0)
             
-            for t in range(ga.n_shifts):
-                shift_name = ga.SHIFT_NAMES[t]
-                is_morning = (t == 0)
-                
-                # Construimos los bloques de demanda reales para el cromosoma de este candidato específico
-                blocks_turno = ga._build_shift_blocks(
-                    candidato.chromosome, d, t, is_morning, pacientes_operados_global
-                )
-                
-                # Inicializamos la estructura de salida por defecto por quirófano
-                cronograma_tentativo[day_name][shift_name] = {}
-                for q_idx, or_obj in enumerate(operating_rooms):
-                    cronograma_tentativo[day_name][shift_name][or_obj.name] = {
-                        "especialidad": "Libre" if int(candidato.chromosome[d, t, q_idx]) == 0 else ga._spec_by_id[int(candidato.chromosome[d, t, q_idx])].name,
-                        "utilizacion_porcentaje": 0.0,
-                        "cirugias": []
+            blocks_turno = ga._build_shift_blocks(
+                best_individual.chromosome, d, t, is_morning, pacientes_operados_ganador
+            )
+            
+            res_decoder = build_shift_schedule(blocks_turno, d, is_morning, config.slot_size_min)
+            pacientes_operados_ganador.update(res_decoder["all_pacientes_ids"])
+            
+            mejor_cronograma_ganador[day_name][shift_name] = {}
+            for q_idx, or_obj in enumerate(operating_rooms):
+                if q_idx in res_decoder["per_or"]:
+                    mejor_cronograma_ganador[day_name][shift_name][or_obj.name] = {
+                        "especialidad": ga._spec_by_id[int(best_individual.chromosome[d, t, q_idx])].name,
+                        "utilizacion_porcentaje": res_decoder["per_or"][q_idx]["utilizacion_porcentaje"],
+                        "cirugias": res_decoder["per_or"][q_idx]["asignaciones"]
                     }
-                
-                # Si el turno tiene bloques con médicos y pacientes, llamamos al solver matemático
-                if any(b["surgeons"] and b["patients"] for b in blocks_turno):
-                    result_mip = solve_mip_for_shift(
-                        blocks_turno, d, is_morning, config.alpha, config.beta, slot_size=15
-                    )
-                    
-                    # ⚠ DETECCIÓN DE INFACTIBILIDAD MICRO:
-                    # Si el solver no encuentra solución factible, descartamos el individuo completo
-                    if result_mip is None or "per_or" not in result_mip:
-                        print(f"  ❌ ¡Infactibilidad detectada en {day_name} ({shift_name})! Rompe restricciones micro.")
-                        candidato_es_factible = False
-                        break
-                    
-                    # Si fue factible, acumulamos los IDs de pacientes operados en este turno
-                    pacientes_operados_global.update(result_mip["all_pacientes_ids"])
-                    
-                    # Volcamos el resultado exitoso del turno al cronograma tentativo
-                    for q_idx, or_obj in enumerate(operating_rooms):
-                        if q_idx in result_mip["per_or"]:
-                            data_or = result_mip["per_or"][q_idx]
-                            
-                            lista_cirugias = []
-                            for asig in data_or["asignaciones"]:
-                                lista_cirugias.append({
-                                    "paciente_id": asig["p"],
-                                    "cirujano": asig["doc"],
-                                    "hora_inicio": asig["hora_inicio"],
-                                    "hora_fin": asig["hora_fin"],
-                                    "duracion_minutos": asig["duracion"]
-                                })
-                                
-                            cronograma_tentativo[day_name][shift_name][or_obj.name] = {
-                                "especialidad": ga._spec_by_id[int(candidato.chromosome[d, t, q_idx])].name,
-                                "utilizacion_porcentaje": data_or["utilizacion_porcentaje"],
-                                "cirugias": lista_cirugias
-                            }
-            
-            if not candidato_es_factible:
-                break  # Sale del bucle de días e invalida el cromosoma para saltar al siguiente candidato
-                
-        # Si logramos validar secuencialmente todos los días sin disparar la bandera de fallo...
-        if candidato_es_factible:
-            print(f"  ✔ ¡Candidato #{rank} completamente validado matemáticamente y secuenciado con éxito!")
-            cronograma_final_json = cronograma_tentativo
-            best_individual = candidato
-            pacientes_operados_ganador = pacientes_operados_global
-            solucion_encontrada = True
-            break  # !!! Cortamos la búsqueda porque encontramos el óptimo ejecutable !!!
 
-    if not solucion_encontrada:
-        print("\n🚨 CRÍTICO: Ninguno de los 10 mejores individuos del AG pudo ser secuenciado por el MILP.")
-        sys.exit(1)
-        
-    # Ahora sí imprimimos de forma segura la grilla macro del individuo ganador
     ga.print_schedule(best_individual)
 
     # 4. Cálculo de Métricas Finales y Exportación
@@ -255,14 +185,14 @@ def main():
     
     res_final = {
         "metadata": {
-            "estado": "Optimización Exitosa (Modelo Híbrido AG-MILP)",
+            "estado": "Optimización Exitosa (AG + Decoder)",
             "tiempo_ejecucion_segundos": round(elapsed_time, 3),
             "total_pacientes_demanda": total_pacientes_sistema,
             "pacientes_programados_exitosamente": len(pacientes_operados_ganador),
             "pacientes_en_espera_restantes": total_pacientes_sistema - len(pacientes_operados_ganador),
-            "fitness_heuristico_macro": round(best_individual.fitness, 4)
+            "fitness_exacto": round(best_individual.fitness, 4)
         },
-        "cronograma": cronograma_final_json
+        "cronograma": mejor_cronograma_ganador
     }
     
     output_filename = "agenda_resultado.json"
@@ -270,7 +200,7 @@ def main():
         json.dump(res_final, f, indent=4, ensure_ascii=False)
         
     print("\n" + "═" * 70)
-    print(f"  🏅 ¡OPTIMIZACIÓN AG-MILP FINALIZADA CON ÉXITO!")
+    print(f"  🏅 ¡OPTIMIZACIÓN FINALIZADA CON ÉXITO!")
     print(f"  - Tiempo total de ejecución: {elapsed_time:.3f} segundos.")
     print(f"  - Cirugías calendarizadas al minuto: {len(pacientes_operados_ganador)} de {total_pacientes_sistema}.")
     print(f"  - Estructura JSON exportada a '{output_filename}'.")

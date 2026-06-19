@@ -37,7 +37,7 @@ class Procedure:
 class Patient:
     id: int
     specialty_id: int
-    procedure_id: int          # Código de procedimiento del nomenclador real (ICD/CIE)
+    procedure_id: int
     estimated_duration: int
     clinical_priority: float
     required_roles: List[str] = field(default_factory=list)
@@ -48,52 +48,46 @@ class Staff:
     id: int
     name: str
     role: str
-    enabled_procedures_ids: List[int] = field(default_factory=list) # Matriz de competencias reales
-    availability_hours: Dict[int, Tuple[int, int]] = field(default_factory=dict) # {dia_idx: (min_inicio, min_fin)}
+    enabled_procedures_ids: List[int] = field(default_factory=list) 
+    availability_hours: Dict[int, Tuple[int, int]] = field(default_factory=dict)
     main_specialty_id: int = 0
 
-    # Modificá estos métodos dentro de la clase Staff en models.py
     def get_range_for_block(self, day_idx: int, is_morning: bool, block_duration_min: int = 720) -> Tuple[int, int]:
-            """Calcula la intersección horaria entre el contrato del médico y el bloque físico dinámico."""
-            if day_idx not in self.availability_hours:
-                return (0, 0)
-            
-            # El bloque arranca a las 08:00 (480) o 13:00 (780) según el turno
-            b_start = 480 if is_morning else 780
-            b_end = b_start + block_duration_min
-            
-            s_start, s_end = self.availability_hours[day_idx]
-            
-            # Intersección matemática (Matemática de intervalos para tu tesis)
-            overlap_start = max(b_start, s_start)
-            overlap_end = min(b_end, s_end)
-            
-            return (overlap_start, overlap_end) if overlap_start < overlap_end else (0, 0)
+        """Calcula la intersección horaria entre el contrato del médico y el bloque físico dinámico."""
+        if day_idx not in self.availability_hours:
+            return (0, 0)
+        
+        b_start = 480 if is_morning else 780
+        b_end = b_start + block_duration_min
+        
+        s_start, s_end = self.availability_hours[day_idx]
+        
+        overlap_start = max(b_start, s_start)
+        overlap_end = min(b_end, s_end)
+        
+        return (overlap_start, overlap_end) if overlap_start < overlap_end else (0, 0)
 
     def get_available_minutes_in_block(self, day_idx: int, is_morning: bool, block_duration_min: int = 720) -> int:
         """Calcula los minutos netos disponibles del médico dentro de los límites del bloque dinámico."""
-        # REUTILIZÁS la función de arriba pasando el parámetro dinámico
         start, end = self.get_range_for_block(day_idx, is_morning, block_duration_min)
         return end - start
 
 @dataclass
 class GAConfig:
     """Todos los parámetros configurables del Algoritmo Genético."""
-    population_size: int = 50
-    max_generations: int = 50
-    convergence_patience: int = 7
-    mutation_rate: float = 0.10
+    population_size: int = 60
+    max_generations: int = 80
+    convergence_patience: int = 10
+    mutation_rate: float = 0.08
     crossover_rate: float = 0.85
-    tournament_size: int = 10
-    elite_count: int = 2
-    
-    alpha: float = 0.7  # Prioridad clínica
-    beta: float = 0.3   # Utilización de tiempo
-    
+    tournament_size: int = 8
+    elite_count: int = 3
+    alpha: float = 0.7  
+    beta: float = 0.3   
     n_days: int = 5
     n_shifts: int = 2
-    block_duration_min: int = 240
+    block_duration_min: int = 720
     slot_size_min: int = 15
     penalty_below_min_quota: float = 50.0
     penalty_above_max_quota: float = 20.0
-    parallel_workers: int = 24
+    parallel_workers: int = 4

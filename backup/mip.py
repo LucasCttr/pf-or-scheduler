@@ -110,7 +110,7 @@ def solve_mip_for_shift(
         if len(c_vars) > 1:
             prob += lpSum(c_vars) - 1 <= (len(c_vars) - 1) * y[sid]
 
-    prob.solve(PULP_CBC_CMD(msg=0, timeLimit=1))
+    prob.solve(PULP_CBC_CMD(msg=0, timeLimit=20))
 
     # 6. Resultados
     res_per_or = {b["or_idx"]: _empty_or(b["or_idx"]) for b in blocks}

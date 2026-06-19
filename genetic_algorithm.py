@@ -1,5 +1,5 @@
 """
-genetic_algorithm.py — Nivel 1: Algoritmo Genético optimizado con Fitness Heurístico.
+genetic_algorithm.py — Nivel 1: Algoritmo Genético optimizado con Decoder Heurístico.
 """
 import random
 from concurrent.futures import ThreadPoolExecutor
@@ -7,10 +7,7 @@ from typing import List, Tuple, Dict, Optional
 import numpy as np
 
 from models import OperatingRoom, Specialty, Procedure, Patient, GAConfig, Staff
-
-# ═══════════════════════════════════════════════════════════════════════
-# 1. CLASE INDIVIDUAL
-# ═══════════════════════════════════════════════════════════════════════
+from decoder import build_shift_schedule
 
 class Individual:
     def __init__(self, chromosome: np.ndarray):
@@ -24,11 +21,6 @@ class Individual:
 
     def __repr__(self) -> str:
         return f"Individual(fitness={self.fitness:.4f})"
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# 2. CLASE GENETIC ALGORITHM
-# ═══════════════════════════════════════════════════════════════════════
 
 class GeneticAlgorithm:
     DAY_NAMES   = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
@@ -60,17 +52,11 @@ class GeneticAlgorithm:
         self.best_individual: Optional[Individual] = None
         self.history: List[float] = []
 
-        # Historial de hit del caché de fitness exclusivo del AG
         self._fitness_cache: Dict[bytes, float] = {}
         self._fitness_cache_hits: int = 0
         
         self.slot_size = config.slot_size_min
         self.procedures_by_specialty = procedures_by_specialty or {}
-        self._procedure_by_id: Dict[int, Procedure] = {
-            proc.id: proc
-            for procs in self.procedures_by_specialty.values()
-            for proc in procs
-        }
 
     def _specialty_procedures(self, specialty_id: int) -> List[Procedure]:
         return self.procedures_by_specialty.get(specialty_id, [])
@@ -105,8 +91,6 @@ class GeneticAlgorithm:
                     return True
         return False
 
-    # ─── 2.1 INICIALIZACIÓN ───────────────────────────────────────────────
-
     def initialize_population(self) -> List[Individual]:
         return [self._create_individual() for _ in range(self.cfg.population_size)]
 
@@ -135,15 +119,8 @@ class GeneticAlgorithm:
                 valid.append(specialty.id)
         return valid
 
-    # ─── 2.2 CONSTRUCCIÓN DE BLOQUES POR TURNO (Para uso del cierre) ──────
-
     def _build_shift_blocks(
-        self,
-        chrom: np.ndarray,
-        d: int,
-        t: int,
-        is_morning: bool,
-        pacientes_excluidos: set
+        self, chrom: np.ndarray, d: int, t: int, is_morning: bool, pacientes_excluidos: set
     ) -> List[Dict]:
         blocks = []
         for q in range(self.n_ors):
@@ -192,16 +169,13 @@ class GeneticAlgorithm:
             })
         return blocks
 
-    # ─── 2.3 EVALUACIÓN DE FITNESS HEURÍSTICO (Mili-segundos) ─────────────
-
     @staticmethod
     def _chromosome_key(chrom: np.ndarray) -> bytes:
         return chrom.tobytes()
 
     def evaluate_fitness(self, individual: Individual) -> float:
         """
-        Calcula de forma determinística una puntuación de utilidad estimada
-        reemplazando el uso del Solver matemático. Ordena por prioridad clínica (Greedy).
+        Calcula el fitness exacto utilizando el Decodificador Heurístico.
         """
         chrom = individual.chromosome
         chrom_key = self._chromosome_key(chrom)
@@ -213,86 +187,29 @@ class GeneticAlgorithm:
             return cached_f
 
         total_score = 0.0
-        pacientes_atendidos_estimados = set()
+        pacientes_operados_global = set()
 
         for d in range(self.n_days):
             for t in range(self.n_shifts):
                 is_morning = (t == 0)
                 
-                for q in range(self.n_ors):
-                    spec_id = int(chrom[d, t, q])
-                    or_ = self._or_by_idx[q]
+                blocks_turno = self._build_shift_blocks(
+                    chrom, d, t, is_morning, pacientes_operados_global
+                )
+                
+                resultado = build_shift_schedule(blocks_turno, d, is_morning, self.cfg.slot_size_min)
+                
+                total_score += resultado["fitness"]
+                pacientes_operados_global.update(resultado["all_pacientes_ids"])
+                
+                for data_or in resultado["per_or"].values():
+                    if data_or["utilizacion_porcentaje"] > 80.0:
+                        total_score += 15.0
 
-                    if not or_.availability[d][t] or spec_id == 0:
-                        continue
-
-                    # 1. Compatibilidad de Complejidad de Quirófano
-                    compatible_procs = self._compatible_procedures_for_room(spec_id, or_.or_type)
-                    if not compatible_procs:
-                        continue
-                    compatible_proc_ids = {proc.id for proc in compatible_procs}
-
-                    # 2. Plantel médico disponible en este turno
-                    surgeons_hoy = [
-                        s for s in self.staff_list
-                        if s.role == "cirujano"
-                        and s.main_specialty_id == spec_id
-                        and s.get_available_minutes_in_block(d, is_morning, self.cfg.block_duration_min) > 0
-                    ]
-                    if not surgeons_hoy:
-                        continue
-
-                    # Minutos máximos que puede ofrecer el conjunto de cirujanos hoy
-                    minutos_disponibles_medicos = sum(
-                        s.get_available_minutes_in_block(d, is_morning, self.cfg.block_duration_min)
-                        for s in surgeons_hoy
-                    )
-                    
-                    capacidad_bloque_min = min(self.cfg.block_duration_min, minutos_disponibles_medicos)
-
-                    # Intersección real de lo que saben operar HOY los médicos en esta sala
-                    proc_habilitados_hoy = set()
-                    for s in surgeons_hoy:
-                        proc_habilitados_hoy.update(set(s.enabled_procedures_ids) & compatible_proc_ids)
-
-                    surgeons_ids = {s.id for s in surgeons_hoy}
-
-                    # 3. Simulación codiciosa del llenado de lista de espera
-                    cand_patients = [
-                        p for p in self.patients_by_specialty.get(spec_id, [])
-                        if p.id not in pacientes_atendidos_estimados
-                        and getattr(p, "procedure_id", None) in proc_habilitados_hoy
-                        and (getattr(p, "forced_surgeon_id", None) is None or p.forced_surgeon_id in surgeons_ids)
-                    ]
-                    
-                    # El núcleo de la heurística: priorizar los de mayor urgencia clínica
-                    cand_patients.sort(key=lambda x: x.clinical_priority, reverse=True)
-
-                    tiempo_utilizado = 0
-                    score_bloque = 0.0
-                    
-                    for p in cand_patients:
-                        if tiempo_utilizado + p.estimated_duration <= capacidad_bloque_min:
-                            tiempo_utilizado += p.estimated_duration
-                            
-                            # Función de peso correlacionada al MILP (Prioridad + Incentivo de uso)
-                            score_bloque += (self.cfg.alpha * p.clinical_priority) + \
-                                            (self.cfg.beta * (p.estimated_duration / self.cfg.block_duration_min))
-                            pacientes_atendidos_estimados.add(p.id)
-
-                    # Premio extra si la utilización teórica supera la meta de eficiencia (80%)
-                    if tiempo_utilizado / self.cfg.block_duration_min > 0.80:
-                        score_bloque += 15.0
-
-                    total_score += score_bloque
-
-        # Restar penalizaciones globales por cuotas incumplidas
         fitness = total_score - self._global_penalty(chrom)
         individual.fitness = fitness
         self._fitness_cache[chrom_key] = fitness
         return fitness
-
-    # ─── 2.4 OPERADORES GENÉTICOS ─────────────────────────────────────────
 
     def tournament_selection(self, population: List[Individual]) -> Individual:
         contestants = random.sample(population, self.cfg.tournament_size)
@@ -348,11 +265,7 @@ class GeneticAlgorithm:
                 penalty += self.cfg.penalty_above_max_quota * (assigned - spec.max_blocks)
         return penalty
 
-    # ─── 2.5 LOOP PRINCIPAL ───────────────────────────────────────────────
     def run(self) -> List[Individual]:
-        """
-        Ejecuta el AG y retorna una lista (Top K) de mejores individuos únicos.
-        """
         self.history = []
         print("▶  Inicializando población...")
         population = self.initialize_population()
@@ -401,7 +314,6 @@ class GeneticAlgorithm:
         print(f"  Cache fitness: {self._fitness_cache_hits} hits / {total_fitness_calls} evaluaciones "
               f"({100 * self._fitness_cache_hits // max(total_fitness_calls, 1)}% ahorrado)")
         
-        # ═══ MODIFICACIÓN EXTRAER TOP K UNICOS ═══
         poblacion_final_ordenada = sorted(population, key=lambda x: x.fitness, reverse=True)
         mejores_unicos = []
         vistos = set()
@@ -411,7 +323,7 @@ class GeneticAlgorithm:
             if key not in vistos:
                 vistos.add(key)
                 mejores_unicos.append(ind.copy())
-            if len(mejores_unicos) >= 5:  # Extrae las mejores 5 alternativas viables únicas
+            if len(mejores_unicos) >= 5:  
                 break
                 
         return mejores_unicos
@@ -420,7 +332,7 @@ class GeneticAlgorithm:
         spec_names = {s.id: s.name for s in self.specialties}
         spec_names[0] = "─── Libre ───"
         print("\n" + "═" * 70)
-        print(f"  AGENDA SEMANAL  │  Fitness Heurístico: {individual.fitness:.4f}")
+        print(f"  AGENDA SEMANAL  │  Fitness Exacto: {individual.fitness:.4f}")
         print("═" * 70)
         for d in range(self.n_days):
             print(f"\n  {self.DAY_NAMES[d]}")
