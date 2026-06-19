@@ -1,115 +1,189 @@
 """
-decoder.py — Decodificador Heurístico de Inserción
-"""
-from typing import Dict, List, Any
-import math
+decoder.py — Decodificador Heurístico para asignación de pacientes a quirófanos.
 
-def format_time(minutes: int) -> str:
+Recibe los bloques del turno (especialidad + pacientes + cirujanos por OR)
+y produce un cronograma completo respetando:
+  - Ventanas horarias reales de cada cirujano
+  - No-solapamiento dentro del mismo quirófano
+  - No-solapamiento del mismo cirujano entre quirófanos (reloj global)
+  - Competencia del cirujano para el procedimiento del paciente
+
+No usa slots discretos ni MIP — asigna minutos exactos de forma greedy.
+"""
+
+from __future__ import annotations
+from typing import Dict, List, Any, Tuple, Optional
+
+
+def _fmt(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
-def is_overlapping(new_start: int, new_end: int, schedule: List[tuple]) -> bool:
-    """Verifica si un intervalo de tiempo choca con la agenda existente."""
-    for s, e in schedule:
-        if new_start < e and new_end > s:
-            return True
-    return False
+
+def _overlaps(start_new: int, end_new: int, intervals: List[Tuple[int, int]]) -> bool:
+    """True si el intervalo [start_new, end_new) se solapa con alguno de intervals."""
+    return any(start_new < end and start < end_new for start, end in intervals)
+
 
 def build_shift_schedule(
-    blocks: List[Dict], day_idx: int, is_morning: bool, slot_size: int = 15
+    blocks: List[Dict],
+    day_idx: int,
+    capacity_params: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
-    Decodificador Goloso (Greedy Decoder) con Densidad de Valor y Turnaround Time.
+    Parámetros
+    ----------
+    blocks : salida de _build_shift_blocks — lista de dicts con:
+        { or_idx, spec_id, patients: List[Patient], surgeons: List[Staff], t_max }
+    day_idx : índice del día (0=Lunes ... 4=Viernes)
+    capacity_params : {
+        "block_start": int,   minutos desde medianoche en que arranca el bloque (default 480 = 08:00)
+        "block_duration": int  duración total del bloque en minutos (default 720)
+    }
+
+    Retorna
+    -------
+    { "fitness": float, "all_pacientes_ids": List[int],
+      "per_or": { or_idx: { pacientes_ids, asignaciones, t_max, uso_tiempo, utilizacion_porcentaje } } }
     """
-    block_start = 480 if is_morning else 780
-    TIEMPO_LIMPIEZA = 30  # Buffer obligatorio entre cirugías
+    block_start = capacity_params.get("block_start", 480)
+    block_duration = capacity_params.get("block_duration", 720)
+    block_end = block_start + block_duration
 
-    active_blocks = [
-        b for b in blocks if b["spec_id"] > 0 and b["surgeons"] and b["patients"]
+    # Bloques activos (con pacientes y cirujanos)
+    active = [
+        b
+        for b in blocks
+        if b["spec_id"] > 0 and b["patients"] and b["surgeons"] and b["t_max"] > 0
     ]
-    per_or = {b["or_idx"]: _empty_or(b["or_idx"]) for b in blocks}
 
-    if not active_blocks:
+    per_or: Dict[int, Dict] = {
+        b["or_idx"]: {
+            "or_idx": b["or_idx"],
+            "t_max": b["t_max"],
+            "pacientes_ids": [],
+            "asignaciones": [],
+            "uso_tiempo": 0,
+            "utilizacion_porcentaje": 0.0,
+        }
+        for b in blocks
+    }
+
+    if not active:
         return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": per_or}
 
-    reloj_quirofano = {b["or_idx"]: 0 for b in active_blocks}
-    agenda_cirujanos = {s.id: [] for b in active_blocks for s in b["surgeons"]}
-    minutos_asignados_cirujano = {s.id: 0 for b in active_blocks for s in b["surgeons"]}
+    # ── Ventanas reales de cada cirujano ──────────────────────────────────────
+    # surgeon_window[s_id] = (inicio_real, fin_real) en minutos absolutos
+    surgeon_window: Dict[int, Tuple[int, int]] = {}
+    for b in active:
+        for s in b["surgeons"]:
+            if s.id in surgeon_window:
+                continue
+            s_start, s_end = s.get_range_for_block(day_idx, True, block_duration)
+            if s_start == s_end == 0:
+                # Sin disponibilidad — no puede operar hoy
+                surgeon_window[s.id] = (0, 0)
+            else:
+                surgeon_window[s.id] = (s_start, s_end)
 
-    # Consolidar y ordenar: Densidad de Valor (Prioridad / Duración)
-    todos_los_pacientes = []
-    paciente_block_map = {}
-    for b in active_blocks:
+    # ── Relojes globales ──────────────────────────────────────────────────────
+    # or_clock[q]   = próximo minuto disponible en el quirófano q
+    # surg_clock[s] = próximo minuto disponible del cirujano s (cross-OR)
+    or_clock: Dict[int, int] = {b["or_idx"]: block_start for b in active}
+    surg_clock: Dict[int, int] = {
+        s.id: surgeon_window[s.id][0]  # empieza en su hora de entrada real
+        for b in active
+        for s in b["surgeons"]
+        if surgeon_window.get(s.id, (0, 0))[1] > 0
+    }
+
+    # ── Candidatos globales ordenados por prioridad ───────────────────────────
+    # Juntamos todos los pacientes de todos los bloques activos.
+    # Cada paciente lleva referencia a su OR asignado y sus cirujanos elegibles.
+    candidatos = []
+    vistos: set = set()
+    for b in active:
         for p in b["patients"]:
-            todos_los_pacientes.append(p)
-            paciente_block_map[p.id] = b
+            if p.id in vistos:
+                continue
+            vistos.add(p.id)
+            forced = getattr(p, "forced_surgeon_id", None)
+            proc_id = getattr(p, "procedure_id", None)
+            elegibles = [
+                s
+                for s in b["surgeons"]
+                if (forced is None or s.id == forced)
+                and (proc_id is None or proc_id in s.enabled_procedures_ids)
+                and surgeon_window.get(s.id, (0, 0))[1]
+                > surgeon_window.get(s.id, (0, 0))[0]
+            ]
+            if elegibles:
+                candidatos.append((p, b["or_idx"], elegibles))
 
-    todos_los_pacientes.sort(
-        key=lambda x: (x.clinical_priority / max(x.estimated_duration, 1)), 
-        reverse=True
-    )
+    # Ordenar por prioridad clínica descendente
+    candidatos.sort(key=lambda x: -x[0].clinical_priority)
 
-    fitness_acumulado = 0.0
-    all_pacientes_ids = []
+    fitness_total = 0.0
+    all_ids: List[int] = []
+    asignados: set = set()
 
-    for p in todos_los_pacientes:
-        b = paciente_block_map[p.id]
-        q_idx = b["or_idx"]
-        duracion = p.estimated_duration
-        duracion_ajustada = math.ceil(duracion / slot_size) * slot_size
-        
-        asignado = False
-        cirujanos_candidatos = [
-            s for s in b["surgeons"]
-            if p.procedure_id in s.enabled_procedures_ids
-            and (p.forced_surgeon_id is None or p.forced_surgeon_id == s.id)
-        ]
+    for p, q, elegibles in candidatos:
+        if p.id in asignados:
+            continue
 
-        for s in cirujanos_candidatos:
-            if asignado: break
+        mejor: Optional[Tuple[int, Any]] = None  # (inicio, cirujano)
 
-            # LÓGICA DE TIEMPO CON BUFFER (Turnaround Time)
-            # Si el quirófano ya tiene asignaciones, sumamos el buffer de limpieza
-            tiempo_base = reloj_quirofano[q_idx]
-            minuto_inicio_propuesto = tiempo_base + (TIEMPO_LIMPIEZA if per_or[q_idx]["pacientes_ids"] else 0)
-            minuto_fin_propuesto = minuto_inicio_propuesto + duracion_ajustada
-
-            # REGLAS DE VALIDACIÓN
-            if minuto_fin_propuesto > b["t_max"]: continue
-            
-            contrato_max = s.get_available_minutes_in_block(day_idx, is_morning, b["t_max"])
-            if minutos_asignados_cirujano[s.id] + duracion_ajustada > contrato_max: continue
-                
-            if is_overlapping(minuto_inicio_propuesto, minuto_fin_propuesto, agenda_cirujanos[s.id]):
+        for s in sorted(elegibles, key=lambda s: surg_clock.get(s.id, 0)):
+            ws, we = surgeon_window.get(s.id, (0, 0))
+            if we == 0:
                 continue
 
-            # ASIGNACIÓN EXITOSA
-            reloj_quirofano[q_idx] = minuto_fin_propuesto
-            agenda_cirujanos[s.id].append((minuto_inicio_propuesto, minuto_fin_propuesto))
-            minutos_asignados_cirujano[s.id] += duracion_ajustada
-            
-            per_or[q_idx]["asignaciones"].append({
-                "p": p.id,
-                "doc": s.name,
-                "hora_inicio": format_time(block_start + minuto_inicio_propuesto),
-                "hora_fin": format_time(block_start + minuto_fin_propuesto),
-                "duracion": duracion
-            })
-            per_or[q_idx]["pacientes_ids"].append(p.id)
-            per_or[q_idx]["uso_tiempo"] += duracion_ajustada
-            per_or[q_idx]["t_max"] = b["t_max"]
-            
-            all_pacientes_ids.append(p.id)
-            fitness_acumulado += p.clinical_priority
-            asignado = True
+            # El inicio más temprano es el máximo entre:
+            # - cuando se libera el quirófano
+            # - cuando se libera el cirujano
+            # - cuando empieza la ventana del cirujano
+            inicio = max(or_clock.get(q, block_start), surg_clock.get(s.id, ws), ws)
+            fin = inicio + p.estimated_duration
 
-    # Cálculo final de utilización
-    for q_idx in per_or:
-        if per_or[q_idx]["t_max"] > 0:
-            per_or[q_idx]["utilizacion_porcentaje"] = round(
-                (per_or[q_idx]["uso_tiempo"] / per_or[q_idx]["t_max"]) * 100, 2
+            # Verificar que entra dentro de la ventana del cirujano y del bloque
+            if fin > we or fin > block_end:
+                continue
+
+            if mejor is None or inicio < mejor[0]:
+                mejor = (inicio, s)
+
+        if mejor is None:
+            continue  # no hay hueco disponible para este paciente
+
+        inicio, cirujano = mejor
+        fin = inicio + p.estimated_duration
+
+        # Registrar
+        per_or[q]["asignaciones"].append(
+            {
+                "p": p.id,
+                "doc": cirujano.name,
+                "doc_id": cirujano.id,
+                "hora_inicio": _fmt(inicio),
+                "hora_fin": _fmt(fin),
+                "duracion": p.estimated_duration,
+            }
+        )
+        per_or[q]["pacientes_ids"].append(p.id)
+        per_or[q]["uso_tiempo"] += p.estimated_duration
+
+        or_clock[q] = fin
+        surg_clock[cirujano.id] = fin
+
+        asignados.add(p.id)
+        all_ids.append(p.id)
+        fitness_total += p.clinical_priority
+
+    # Calcular utilización
+    for q, data in per_or.items():
+        data["asignaciones"].sort(key=lambda a: a["hora_inicio"])
+        if data["t_max"] > 0:
+            data["utilizacion_porcentaje"] = round(
+                data["uso_tiempo"] / data["t_max"] * 100, 2
             )
 
-    return {"fitness": fitness_acumulado, "all_pacientes_ids": all_pacientes_ids, "per_or": per_or}
-
-def _empty_or(or_idx: int) -> Dict:
-    return {"or_idx": or_idx, "pacientes_ids": [], "asignaciones": [], "t_max": 0, "uso_tiempo": 0, "utilizacion_porcentaje": 0.0}
+    return {"fitness": fitness_total, "all_pacientes_ids": all_ids, "per_or": per_or}

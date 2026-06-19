@@ -127,6 +127,7 @@ def solve_mip_for_shift(
                 res_per_or[q]["asignaciones"].append({
                     "p": pid,
                     "doc": s_obj.name,
+                    "doc_id": s_obj.id,
                     "t_inicio": t,
                     "t_fin": t_fin,
                     "slot_inicio": t // slot_size,

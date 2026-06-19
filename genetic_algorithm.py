@@ -95,13 +95,35 @@ class GeneticAlgorithm:
         return [self._create_individual() for _ in range(self.cfg.population_size)]
 
     def _create_individual(self) -> Individual:
-        chrom = np.zeros((self.n_days, self.n_shifts, self.n_ors), dtype=int)
+        # (días, turnos, quirófanos, 2)
+        # [d, t, q, 0] = Specialty ID
+        # [d, t, q, 1] = Staff ID (Cirujano)
+        chrom = np.zeros((self.n_days, self.n_shifts, self.n_ors, 2), dtype=int)
+        
         for d in range(self.n_days):
             for t in range(self.n_shifts):
                 for q in range(self.n_ors):
-                    chrom[d, t, q] = self._random_specialty_for(q, d, t)
+                    # 1. Elegir especialidad
+                    spec_id = self._random_specialty_for(q, d, t)
+                    chrom[d, t, q, 0] = spec_id
+                    
+                    # 2. Elegir un cirujano válido para esa especialidad
+                    if spec_id != 0:
+                        cirujanos_validos = self._get_surgeons_for(spec_id, d, t == 0)
+                        if cirujanos_validos:
+                            chrom[d, t, q, 1] = random.choice(cirujanos_validos).id
+                        else:
+                            chrom[d, t, q, 0] = 0 # Si no hay cirujanos, el quirófano queda libre
         return Individual(chrom)
 
+    def _get_surgeons_for(self, specialty_id: int, day: int, is_morning: bool) -> List[Staff]:
+        """Filtra cirujanos de una especialidad con disponibilidad en ese bloque."""
+        return [
+            s for s in self.staff_list
+            if s.main_specialty_id == specialty_id 
+            and s.get_available_minutes_in_block(day, is_morning, self.cfg.block_duration_min) > 0
+        ]
+    
     def _random_specialty_for(self, or_idx: int, day: int, shift: int) -> int:
         options = self._valid_specialties_for(or_idx, day, shift)
         if not options or random.random() < 0.15:
@@ -124,47 +146,42 @@ class GeneticAlgorithm:
     ) -> List[Dict]:
         blocks = []
         for q in range(self.n_ors):
-            spec_id = int(chrom[d, t, q])
-            or_     = self._or_by_idx[q]
+            # Ahora extraemos ambos valores del cromosoma
+            spec_id = int(chrom[d, t, q, 0])
+            staff_id = int(chrom[d, t, q, 1])
+            or_ = self._or_by_idx[q]
 
-            if not or_.availability[d][t] or spec_id == 0:
+            # Si el quirófano no está disponible o el AG marcó 0 (Libre)
+            if not or_.availability[d][t] or spec_id == 0 or staff_id == 0:
                 blocks.append({"or_idx": q, "spec_id": 0, "patients": [], "surgeons": [], "t_max": 0})
                 continue
 
+            # Obtenemos al cirujano específico que eligió el cromosoma
+            cirujano = next((s for s in self.staff_list if s.id == staff_id), None)
+            
+            # Validar que el cirujano realmente exista y esté disponible en ese bloque
+            if not cirujano or cirujano.get_available_minutes_in_block(d, is_morning, self.cfg.block_duration_min) <= 0:
+                blocks.append({"or_idx": q, "spec_id": spec_id, "patients": [], "surgeons": [], "t_max": 0})
+                continue
+
+            # Filtrar pacientes: deben ser de esa especialidad Y el cirujano debe poder operar ese procedimiento
             compatible_procs = self._compatible_procedures_for_room(spec_id, or_.or_type)
             compatible_proc_ids = {proc.id for proc in compatible_procs}
-            if not compatible_proc_ids:
-                blocks.append({"or_idx": q, "spec_id": spec_id, "patients": [], "surgeons": [], "t_max": 0})
-                continue
+            procedimientos_viables = set(cirujano.enabled_procedures_ids) & compatible_proc_ids
 
-            surgeons = [
-                s for s in self.staff_list
-                if s.role == "cirujano"
-                and s.main_specialty_id == spec_id
-                and any(pid in s.enabled_procedures_ids for pid in compatible_proc_ids)
-                and s.get_available_minutes_in_block(d, is_morning, self.cfg.block_duration_min) > 0
-            ]
-            if not surgeons:
-                blocks.append({"or_idx": q, "spec_id": spec_id, "patients": [], "surgeons": [], "t_max": 0})
-                continue
-
-            procedimientos_viables_hoy = set()
-            for s in surgeons:
-                procedimientos_viables_hoy.update(set(s.enabled_procedures_ids) & compatible_proc_ids)
-
-            surgeons_ids = {s.id for s in surgeons}
             patients = [
                 p for p in self.patients_by_specialty.get(spec_id, [])
                 if p.id not in pacientes_excluidos
-                and getattr(p, "procedure_id", None) in procedimientos_viables_hoy
-                and (getattr(p, "forced_surgeon_id", None) is None or p.forced_surgeon_id in surgeons_ids)
+                and getattr(p, "procedure_id", None) in procedimientos_viables
+                # Si el paciente tenía un cirujano forzado, debe coincidir con el del cromosoma
+                and (getattr(p, "forced_surgeon_id", None) is None or p.forced_surgeon_id == staff_id)
             ]
 
             blocks.append({
                 "or_idx"  : q,
                 "spec_id" : spec_id,
                 "patients": patients,
-                "surgeons": surgeons,
+                "surgeons": [cirujano], # Solo enviamos al cirujano elegido
                 "t_max"   : self.cfg.block_duration_min,
             })
         return blocks
@@ -191,13 +208,14 @@ class GeneticAlgorithm:
 
         for d in range(self.n_days):
             for t in range(self.n_shifts):
-                is_morning = (t == 0)
+                blocks_turno = self._build_shift_blocks(chrom, d, t, (t == 0), pacientes_operados_global)
                 
-                blocks_turno = self._build_shift_blocks(
-                    chrom, d, t, is_morning, pacientes_operados_global
-                )
-                
-                resultado = build_shift_schedule(blocks_turno, d, is_morning, self.cfg.slot_size_min)
+                # Diccionario de parámetros esperado por el decodificador
+                capacity_params = {
+                    "block_start":    480 if (t == 0) else 780,
+                    "block_duration": self.cfg.block_duration_min,
+                }
+                resultado = build_shift_schedule(blocks_turno, d, capacity_params)
                 
                 total_score += resultado["fitness"]
                 pacientes_operados_global.update(resultado["all_pacientes_ids"])
@@ -232,13 +250,22 @@ class GeneticAlgorithm:
                 for q in range(self.n_ors):
                     if random.random() < self.cfg.mutation_rate:
                         if random.random() < 0.5:
-                            chrom[d, t, q] = self._random_specialty_for(q, d, t)
+                            # CORRECCIÓN: Accede al índice [0] (especialidad)
+                            # Y luego debes asignar tanto la especialidad como el cirujano
+                            new_spec = self._random_specialty_for(q, d, t)
+                            chrom[d, t, q, 0] = new_spec
+                            # Si cambia la especialidad, debes reasignar un cirujano válido
+                            if new_spec != 0:
+                                cirujanos = self._get_surgeons_for(new_spec, d, t == 0)
+                                chrom[d, t, q, 1] = random.choice(cirujanos).id if cirujanos else 0
+                            else:
+                                chrom[d, t, q, 1] = 0
                         else:
+                            # Mutación de intercambio (swap)
                             d2, t2, q2 = random.randrange(self.n_days), random.randrange(self.n_shifts), random.randrange(self.n_ors)
-                            comp1 = self._specialty_valid_for_or(int(chrom[d, t, q]), q2, d2, t2)
-                            comp2 = self._specialty_valid_for_or(int(chrom[d2, t2, q2]), q, d, t)
-                            if comp1 and comp2:
-                                chrom[d, t, q], chrom[d2, t2, q2] = int(chrom[d2, t2, q2]), int(chrom[d, t, q])
+                            
+                            # Intercambiar la celda completa (Especialidad y Cirujano)
+                            chrom[d, t, q, :], chrom[d2, t2, q2, :] = chrom[d2, t2, q2, :].copy(), chrom[d, t, q, :].copy()
         return Individual(chrom)
 
     def _count_blocks_per_specialty(self, chrom: np.ndarray) -> Dict[int, int]:
@@ -339,5 +366,10 @@ class GeneticAlgorithm:
             for t in range(self.n_shifts):
                 print(f"    {self.SHIFT_NAMES[t]}:")
                 for q in range(self.n_ors):
-                    sid = int(individual.chromosome[d, t, q])
-                    print(f"      {self._or_by_idx[q].name:25s} → {spec_names.get(sid, 'ID='+str(sid))}")
+                    # CORRECCIÓN: Accede al índice [0] para obtener la especialidad
+                    sid = int(individual.chromosome[d, t, q, 0])
+                    # OPCIONAL: Si quieres imprimir también el cirujano
+                    cid = int(individual.chromosome[d, t, q, 1])
+                    cirujano = next((s.name for s in self.staff_list if s.id == cid), "Sin asignar")
+                    
+                    print(f"      {self._or_by_idx[q].name:25s} → {spec_names.get(sid, 'ID='+str(sid))} (Dr. {cirujano})")
