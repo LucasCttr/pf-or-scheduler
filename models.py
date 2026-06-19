@@ -42,35 +42,38 @@ class Patient:
     clinical_priority: float
     required_roles: List[str] = field(default_factory=list)
     forced_surgeon_id: Optional[int] = None
-
+    
 @dataclass
 class Staff:
     id: int
     name: str
     role: str
-    enabled_procedures_ids: List[int] = field(default_factory=list) 
-    availability_hours: Dict[int, Tuple[int, int]] = field(default_factory=dict)
     main_specialty_id: int = 0
+    enabled_procedures_ids: List[int] = field(default_factory=list)
+    
+    # NUEVOS ATRIBUTOS
+    max_minutos_semanales: int = 2400  # Por defecto 40 horas
+    minutos_consumidos: int = 0
+    dias_disponibles: List[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])
 
-    def get_range_for_block(self, day_idx: int, is_morning: bool, block_duration_min: int = 720) -> Tuple[int, int]:
-        """Calcula la intersección horaria entre el contrato del médico y el bloque físico dinámico."""
-        if day_idx not in self.availability_hours:
-            return (0, 0)
+    def get_available_minutes_in_block(self, day_idx: int) -> int:
+        """
+        Calcula cuánto tiempo le queda al médico para operar, 
+        limitado por su bolsa semanal y si el día es hábil.
+        """
+        # 1. ¿Está el médico disponible este día?
+        if day_idx not in self.dias_disponibles:
+            return 0
         
-        b_start = 480 if is_morning else 780
-        b_end = b_start + block_duration_min
+        # 2. ¿Cuánto le queda de su bolsa semanal?
+        restante = self.max_minutos_semanales - self.minutos_consumidos
         
-        s_start, s_end = self.availability_hours[day_idx]
-        
-        overlap_start = max(b_start, s_start)
-        overlap_end = min(b_end, s_end)
-        
-        return (overlap_start, overlap_end) if overlap_start < overlap_end else (0, 0)
+        # Retorna el límite de la bolsa o 0 si ya se agotó
+        return max(0, restante)
 
-    def get_available_minutes_in_block(self, day_idx: int, is_morning: bool, block_duration_min: int = 720) -> int:
-        """Calcula los minutos netos disponibles del médico dentro de los límites del bloque dinámico."""
-        start, end = self.get_range_for_block(day_idx, is_morning, block_duration_min)
-        return end - start
+    def consumir_minutos(self, minutos: int):
+        """Registra el tiempo tras una asignación exitosa."""
+        self.minutos_consumidos += minutos
 
 @dataclass
 class GAConfig:

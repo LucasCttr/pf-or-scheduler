@@ -235,7 +235,7 @@ def make_patients(
     if specialty_id == 4: # Solo inyectar en la especialidad deseada
         urgentes = [
             Patient(id=9001, specialty_id=4, procedure_id=401, estimated_duration=120, 
-                    clinical_priority=10.0, forced_surgeon_id=TARGET_SURGEON_ID),
+                    clinical_priority=20.0, forced_surgeon_id=TARGET_SURGEON_ID),
             Patient(id=9002, specialty_id=4, procedure_id=401, estimated_duration=90, 
                     clinical_priority=10.0, forced_surgeon_id=TARGET_SURGEON_ID),
             Patient(id=9003, specialty_id=4, procedure_id=402, estimated_duration=60, 

@@ -29,27 +29,12 @@ def build_shift_schedule(
     day_idx: int,
     capacity_params: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """
-    Parámetros
-    ----------
-    blocks : salida de _build_shift_blocks — lista de dicts con:
-        { or_idx, spec_id, patients: List[Patient], surgeons: List[Staff], t_max }
-    day_idx : índice del día (0=Lunes ... 4=Viernes)
-    capacity_params : {
-        "block_start": int,   minutos desde medianoche en que arranca el bloque (default 480 = 08:00)
-        "block_duration": int  duración total del bloque en minutos (default 720)
-    }
-
-    Retorna
-    -------
-    { "fitness": float, "all_pacientes_ids": List[int],
-      "per_or": { or_idx: { pacientes_ids, asignaciones, t_max, uso_tiempo, utilizacion_porcentaje } } }
-    """
     block_start = capacity_params.get("block_start", 480)
     block_duration = capacity_params.get("block_duration", 720)
+    # Gap (turnover) in minutes to leave between consecutive surgeries
+    gap_between_cases = capacity_params.get("gap_between_cases", 0)        # me modifica el porcenaje de uso del quirofano (arreglar)
     block_end = block_start + block_duration
 
-    # Bloques activos (con pacientes y cirujanos)
     active = [
         b
         for b in blocks
@@ -71,34 +56,23 @@ def build_shift_schedule(
     if not active:
         return {"fitness": 0.0, "all_pacientes_ids": [], "per_or": per_or}
 
-    # ── Ventanas reales de cada cirujano ──────────────────────────────────────
-    # surgeon_window[s_id] = (inicio_real, fin_real) en minutos absolutos
-    surgeon_window: Dict[int, Tuple[int, int]] = {}
-    for b in active:
-        for s in b["surgeons"]:
-            if s.id in surgeon_window:
-                continue
-            s_start, s_end = s.get_range_for_block(day_idx, True, block_duration)
-            if s_start == s_end == 0:
-                # Sin disponibilidad — no puede operar hoy
-                surgeon_window[s.id] = (0, 0)
-            else:
-                surgeon_window[s.id] = (s_start, s_end)
-
     # ── Relojes globales ──────────────────────────────────────────────────────
-    # or_clock[q]   = próximo minuto disponible en el quirófano q
-    # surg_clock[s] = próximo minuto disponible del cirujano s (cross-OR)
+    # Each OR may have its own effective block duration (b["t_max"]).
     or_clock: Dict[int, int] = {b["or_idx"]: block_start for b in active}
-    surg_clock: Dict[int, int] = {
-        s.id: surgeon_window[s.id][0]  # empieza en su hora de entrada real
-        for b in active
-        for s in b["surgeons"]
-        if surgeon_window.get(s.id, (0, 0))[1] > 0
+    or_block_end: Dict[int, int] = {
+        b["or_idx"]: block_start + min(block_duration, b["t_max"]) for b in active
     }
 
-    # ── Candidatos globales ordenados por prioridad ───────────────────────────
-    # Juntamos todos los pacientes de todos los bloques activos.
-    # Cada paciente lleva referencia a su OR asignado y sus cirujanos elegibles.
+    # surg_clock ahora es simplemente el inicio del bloque (o cuando el médico llega)
+    surg_clock: Dict[int, int] = {
+        s.id: block_start for b in active for s in b["surgeons"]
+    }
+
+    # Track remaining minutes per surgeon locally to avoid mutating shared Staff state
+    remaining_minutes: Dict[int, int] = {
+        s.id: s.get_available_minutes_in_block(day_idx) for b in active for s in b["surgeons"]
+    }
+
     candidatos = []
     vistos: set = set()
     for b in active:
@@ -107,19 +81,16 @@ def build_shift_schedule(
                 continue
             vistos.add(p.id)
             forced = getattr(p, "forced_surgeon_id", None)
-            proc_id = getattr(p, "procedure_id", None)
             elegibles = [
                 s
                 for s in b["surgeons"]
                 if (forced is None or s.id == forced)
-                and (proc_id is None or proc_id in s.enabled_procedures_ids)
-                and surgeon_window.get(s.id, (0, 0))[1]
-                > surgeon_window.get(s.id, (0, 0))[0]
+                # VALIDACIÓN DE BOLSA: ¿Tiene tiempo en su presupuesto?
+                and s.get_available_minutes_in_block(day_idx) >= p.estimated_duration
             ]
             if elegibles:
                 candidatos.append((p, b["or_idx"], elegibles))
 
-    # Ordenar por prioridad clínica descendente
     candidatos.sort(key=lambda x: -x[0].clinical_priority)
 
     fitness_total = 0.0
@@ -130,34 +101,33 @@ def build_shift_schedule(
         if p.id in asignados:
             continue
 
-        mejor: Optional[Tuple[int, Any]] = None  # (inicio, cirujano)
+        # Ordenar por el que tiene más presupuesto disponible o por el reloj más temprano
+        mejor: Optional[Tuple[int, Any]] = None
 
-        for s in sorted(elegibles, key=lambda s: surg_clock.get(s.id, 0)):
-            ws, we = surgeon_window.get(s.id, (0, 0))
-            if we == 0:
-                continue
-
-            # El inicio más temprano es el máximo entre:
-            # - cuando se libera el quirófano
-            # - cuando se libera el cirujano
-            # - cuando empieza la ventana del cirujano
-            inicio = max(or_clock.get(q, block_start), surg_clock.get(s.id, ws), ws)
+        for s in sorted(elegibles, key=lambda s: surg_clock.get(s.id, block_start)):
+            inicio = max(
+                or_clock.get(q, block_start) + gap_between_cases,
+                surg_clock.get(s.id, block_start) + gap_between_cases,
+            )
             fin = inicio + p.estimated_duration
 
-            # Verificar que entra dentro de la ventana del cirujano y del bloque
-            if fin > we or fin > block_end:
+            # Respect the OR-specific block end time
+            if fin > or_block_end.get(q, block_end):
                 continue
 
             if mejor is None or inicio < mejor[0]:
                 mejor = (inicio, s)
 
         if mejor is None:
-            continue  # no hay hueco disponible para este paciente
+            continue
 
         inicio, cirujano = mejor
         fin = inicio + p.estimated_duration
 
-        # Registrar
+        # ── REGISTRO DE CONSUMO (local) ──────────────────────────────────────
+        remaining_minutes[cirujano.id] -= p.estimated_duration
+        # ────────────────────────────────────────────────────────────────────
+
         per_or[q]["asignaciones"].append(
             {
                 "p": p.id,
@@ -178,12 +148,11 @@ def build_shift_schedule(
         all_ids.append(p.id)
         fitness_total += p.clinical_priority
 
-    # Calcular utilización
-    for q, data in per_or.items():
-        data["asignaciones"].sort(key=lambda a: a["hora_inicio"])
-        if data["t_max"] > 0:
-            data["utilizacion_porcentaje"] = round(
-                data["uso_tiempo"] / data["t_max"] * 100, 2
-            )
+    # Calcular utilización por OR usando su t_max efectivo
+    for b in active:
+        idx = b["or_idx"]
+        t_max = min(block_duration, b["t_max"]) if b else block_duration
+        used = per_or[idx]["uso_tiempo"]
+        per_or[idx]["utilizacion_porcentaje"] = (used / t_max * 100.0) if t_max > 0 else 0.0
 
     return {"fitness": fitness_total, "all_pacientes_ids": all_ids, "per_or": per_or}
