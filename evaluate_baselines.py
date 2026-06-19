@@ -6,7 +6,7 @@ from typing import List, Dict
 
 # Importaciones de tus estructuras de datos reales
 from models import OperatingRoom, Specialty, Patient, GAConfig, Staff
-from main import build_staff, build_operating_rooms, build_specialties, make_patients
+from back.main2 import build_staff, build_operating_rooms, build_specialties, make_patients
 
 def cargar_configuracion_ranking_1():
     """Retorna los parámetros óptimos del tuning (Rank 1)."""

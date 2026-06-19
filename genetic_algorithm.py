@@ -263,17 +263,25 @@ class GeneticAlgorithm:
         pacientes_operados_global = set()
 
         for d in range(self.n_days):
+            # Estado acumulado del cirujano durante el día — se propaga entre turnos
+            surg_clock_dia: Dict[int, int] = {}
+            consumed_dia:   Dict[int, int] = {}
+
             for t in range(self.n_shifts):
                 blocks_turno = self._build_shift_blocks(
                     chrom, d, t, (t == 0), pacientes_operados_global
                 )
-
-                # Diccionario de parámetros esperado por el decodificador
                 capacity_params = {
-                    "block_start": 480 if (t == 0) else 780,
-                    "block_duration": self.cfg.block_duration_min,
+                    "block_start":              480 if (t == 0) else 780,
+                    "block_duration":           self.cfg.block_duration_min,
+                    "surg_clock_previo":        surg_clock_dia,
+                    "remaining_minutes_previo": consumed_dia,
                 }
                 resultado = build_shift_schedule(blocks_turno, d, capacity_params)
+
+                # Propagar estado al siguiente turno del mismo día
+                surg_clock_dia = resultado.get("surg_clock_final", surg_clock_dia)
+                consumed_dia   = resultado.get("consumed_minutes", consumed_dia)
 
                 total_score += resultado["fitness"]
                 pacientes_operados_global.update(resultado["all_pacientes_ids"])

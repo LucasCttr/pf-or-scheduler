@@ -7,7 +7,7 @@ from typing import Dict, List
 
 from models import OperatingRoom, Specialty, Procedure, Patient, GAConfig, Staff
 from genetic_algorithm import GeneticAlgorithm
-from decoder import build_shift_schedule
+from back.decoder2 import build_shift_schedule
 
 PROCEDURES_BY_SPECIALTY = {
     1: [
@@ -305,10 +305,6 @@ def main():
         day_name = ga.DAY_NAMES[d]
         mejor_cronograma_ganador[day_name] = {}
 
-        # Estado acumulado del día — igual que en evaluate_fitness
-        surg_clock_dia: Dict[int, int] = {}
-        consumed_dia:   Dict[int, int] = {}
-
         for t in range(ga.n_shifts):
             shift_name = ga.SHIFT_NAMES[t]
             is_morning = t == 0
@@ -318,15 +314,11 @@ def main():
             )
 
             capacity_params = {
-                "block_start":              480 if (t == 0) else 780,
-                "block_duration":           config.block_duration_min,
-                "surg_clock_previo":        surg_clock_dia,
-                "remaining_minutes_previo": consumed_dia,
+                "block_start": 480 if (t == 0) else 780,
+                "block_duration": config.block_duration_min,
             }
 
             res_decoder = build_shift_schedule(blocks_turno, d, capacity_params)
-            surg_clock_dia = res_decoder.get("surg_clock_final", surg_clock_dia)
-            consumed_dia   = res_decoder.get("consumed_minutes", consumed_dia)
             pacientes_operados_ganador.update(res_decoder["all_pacientes_ids"])
 
             mejor_cronograma_ganador[day_name][shift_name] = {}
