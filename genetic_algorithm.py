@@ -250,6 +250,10 @@ class GeneticAlgorithm:
         """
         Calcula el fitness exacto utilizando el Decodificador Heurístico.
         """
+        # Reset staff consumption so each individual's evaluation starts fresh
+        for s in self.staff_list:
+            s.minutos_consumidos = 0
+
         chrom = individual.chromosome
         chrom_key = self._chromosome_key(chrom)
 

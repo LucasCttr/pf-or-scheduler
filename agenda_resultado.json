@@ -1,7 +1,7 @@
 {
     "metadata": {
         "estado": "Optimización Exitosa (AG + Decoder)",
-        "tiempo_ejecucion_segundos": 3.083,
+        "tiempo_ejecucion_segundos": 2.904,
         "total_pacientes_demanda": 283,
         "pacientes_programados_exitosamente": 119,
         "pacientes_en_espera_restantes": 164,

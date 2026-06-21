@@ -259,7 +259,7 @@ def default_config() -> GAConfig:
         beta=0.3,
         block_duration_min=360,
         slot_size_min=15,
-        parallel_workers=4,
+        parallel_workers=1,
     )
 
 

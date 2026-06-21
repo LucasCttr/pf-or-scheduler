@@ -138,8 +138,11 @@ def build_shift_schedule(
         inicio, cirujano = mejor
         fin = inicio + p.estimated_duration
 
-        # Decrementar el presupuesto de minutos del cirujano
+        # Decrementar el presupuesto de minutos del cirujano (Local)
         remaining_minutes[cirujano.id] = remaining_minutes.get(cirujano.id, 0) - p.estimated_duration
+
+        # ✅ APLICAR SIEMPRE EL CONSUMO GLOBAL
+        cirujano.consumir_minutos(p.estimated_duration)
 
         per_or[q]["asignaciones"].append(
             {
