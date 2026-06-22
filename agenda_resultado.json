@@ -1,1174 +1,559 @@
 {
-    "metadata": {
-        "estado": "Optimización Exitosa (AG + Decoder)",
-        "tiempo_ejecucion_segundos": 2.904,
-        "total_pacientes_demanda": 283,
-        "pacientes_programados_exitosamente": 119,
-        "pacientes_en_espera_restantes": 164,
-        "fitness_exacto": 1350.62
+  "fitness": 382.2417,
+  "generaciones_ejecutadas": 37,
+  "distribucion_semanal_especialidades": {
+    "lunes": {
+      "Q1": "CG",
+      "Q2": "CG",
+      "Q3": "TRA"
     },
-    "cronograma": {
-        "Lunes": {
-            "Mañana": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 1007,
-                            "doc": "Dr. Spec1_N2",
-                            "doc_id": 3,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 1025,
-                            "doc": "Dr. Spec1_N2",
-                            "doc_id": 3,
-                            "hora_inicio": "09:00",
-                            "hora_fin": "11:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 1028,
-                            "doc": "Dr. Spec1_N2",
-                            "doc_id": 3,
-                            "hora_inicio": "11:30",
-                            "hora_fin": "12:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 1010,
-                            "doc": "Dr. Spec1_N2",
-                            "doc_id": 3,
-                            "hora_inicio": "12:30",
-                            "hora_fin": "14:00",
-                            "duracion": 90
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Neurocirugía",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 3028,
-                            "doc": "Dr. Spec3_N1",
-                            "doc_id": 8,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 3025,
-                            "doc": "Dr. Spec3_N1",
-                            "doc_id": 8,
-                            "hora_inicio": "10:00",
-                            "hora_fin": "12:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 3013,
-                            "doc": "Dr. Spec3_N1",
-                            "doc_id": 8,
-                            "hora_inicio": "12:00",
-                            "hora_fin": "12:45",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 3029,
-                            "doc": "Dr. Spec3_N1",
-                            "doc_id": 8,
-                            "hora_inicio": "12:45",
-                            "hora_fin": "13:30",
-                            "duracion": 45
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "General",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 2002,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 2003,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "09:00",
-                            "hora_fin": "11:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 2014,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "11:30",
-                            "hora_fin": "13:30",
-                            "duracion": 120
-                        }
-                    ]
-                }
-            },
-            "Tarde": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Ginecología",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 9001,
-                            "doc": "Dr. Spec4_N2",
-                            "doc_id": 12,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "15:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 9002,
-                            "doc": "Dr. Spec4_N2",
-                            "doc_id": 12,
-                            "hora_inicio": "15:00",
-                            "hora_fin": "16:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 9003,
-                            "doc": "Dr. Spec4_N2",
-                            "doc_id": 12,
-                            "hora_inicio": "16:30",
-                            "hora_fin": "17:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 4003,
-                            "doc": "Dr. Spec4_N2",
-                            "doc_id": 12,
-                            "hora_inicio": "17:30",
-                            "hora_fin": "18:30",
-                            "duracion": 60
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Cardiología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 8028,
-                            "doc": "Dr. Spec8_N1",
-                            "doc_id": 23,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "14:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 8005,
-                            "doc": "Dr. Spec8_N1",
-                            "doc_id": 23,
-                            "hora_inicio": "14:30",
-                            "hora_fin": "16:30",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 8011,
-                            "doc": "Dr. Spec8_N1",
-                            "doc_id": 23,
-                            "hora_inicio": "16:30",
-                            "hora_fin": "19:00",
-                            "duracion": 150
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "Plástica",
-                    "utilizacion_porcentaje": 95.83333333333334,
-                    "cirugias": [
-                        {
-                            "p": 6007,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "13:45",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 6029,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "13:45",
-                            "hora_fin": "14:45",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 6024,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "14:45",
-                            "hora_fin": "16:45",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 6018,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "16:45",
-                            "hora_fin": "18:45",
-                            "duracion": 120
-                        }
-                    ]
-                }
-            }
-        },
-        "Martes": {
-            "Mañana": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Cardiología",
-                    "utilizacion_porcentaje": 95.83333333333334,
-                    "cirugias": [
-                        {
-                            "p": 8000,
-                            "doc": "Dr. Spec8_N2",
-                            "doc_id": 24,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 8029,
-                            "doc": "Dr. Spec8_N2",
-                            "doc_id": 24,
-                            "hora_inicio": "09:30",
-                            "hora_fin": "10:15",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 8009,
-                            "doc": "Dr. Spec8_N2",
-                            "doc_id": 24,
-                            "hora_inicio": "10:15",
-                            "hora_fin": "12:45",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 8025,
-                            "doc": "Dr. Spec8_N2",
-                            "doc_id": 24,
-                            "hora_inicio": "12:45",
-                            "hora_fin": "13:45",
-                            "duracion": 60
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 1013,
-                            "doc": "Dr. Spec1_N0",
-                            "doc_id": 1,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 1005,
-                            "doc": "Dr. Spec1_N0",
-                            "doc_id": 1,
-                            "hora_inicio": "10:30",
-                            "hora_fin": "11:15",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 1002,
-                            "doc": "Dr. Spec1_N0",
-                            "doc_id": 1,
-                            "hora_inicio": "11:15",
-                            "hora_fin": "13:15",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 1011,
-                            "doc": "Dr. Spec1_N0",
-                            "doc_id": 1,
-                            "hora_inicio": "13:15",
-                            "hora_fin": "14:00",
-                            "duracion": 45
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "Plástica",
-                    "utilizacion_porcentaje": 95.83333333333334,
-                    "cirugias": [
-                        {
-                            "p": 6021,
-                            "doc": "Dr. Spec6_N1",
-                            "doc_id": 17,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 6026,
-                            "doc": "Dr. Spec6_N1",
-                            "doc_id": 17,
-                            "hora_inicio": "10:00",
-                            "hora_fin": "11:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 6006,
-                            "doc": "Dr. Spec6_N1",
-                            "doc_id": 17,
-                            "hora_inicio": "11:00",
-                            "hora_fin": "13:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 6034,
-                            "doc": "Dr. Spec6_N1",
-                            "doc_id": 17,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "13:45",
-                            "duracion": 45
-                        }
-                    ]
-                }
-            },
-            "Tarde": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Neurocirugía",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 3026,
-                            "doc": "Dr. Spec3_N1",
-                            "doc_id": 8,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "15:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 3014,
-                            "doc": "Dr. Spec3_N1",
-                            "doc_id": 8,
-                            "hora_inicio": "15:30",
-                            "hora_fin": "17:00",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 3006,
-                            "doc": "Dr. Spec3_N1",
-                            "doc_id": 8,
-                            "hora_inicio": "17:00",
-                            "hora_fin": "18:30",
-                            "duracion": 90
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Cardiología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 8007,
-                            "doc": "Dr. Spec8_N0",
-                            "doc_id": 22,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "15:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 8033,
-                            "doc": "Dr. Spec8_N0",
-                            "doc_id": 22,
-                            "hora_inicio": "15:30",
-                            "hora_fin": "16:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 8008,
-                            "doc": "Dr. Spec8_N0",
-                            "doc_id": 22,
-                            "hora_inicio": "16:30",
-                            "hora_fin": "17:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 8024,
-                            "doc": "Dr. Spec8_N0",
-                            "doc_id": 22,
-                            "hora_inicio": "17:30",
-                            "hora_fin": "18:15",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 8019,
-                            "doc": "Dr. Spec8_N0",
-                            "doc_id": 22,
-                            "hora_inicio": "18:15",
-                            "hora_fin": "19:00",
-                            "duracion": 45
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "Oftalmología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 5015,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "14:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 5009,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "14:30",
-                            "hora_fin": "15:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 5031,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "15:30",
-                            "hora_fin": "16:15",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 5007,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "16:15",
-                            "hora_fin": "17:15",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 5025,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "17:15",
-                            "hora_fin": "18:15",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 5002,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "18:15",
-                            "hora_fin": "19:00",
-                            "duracion": 45
-                        }
-                    ]
-                }
-            }
-        },
-        "Miércoles": {
-            "Mañana": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Urología",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 7027,
-                            "doc": "Dr. Spec7_N1",
-                            "doc_id": 20,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 7022,
-                            "doc": "Dr. Spec7_N1",
-                            "doc_id": 20,
-                            "hora_inicio": "10:00",
-                            "hora_fin": "10:45",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 7032,
-                            "doc": "Dr. Spec7_N1",
-                            "doc_id": 20,
-                            "hora_inicio": "10:45",
-                            "hora_fin": "12:45",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 7019,
-                            "doc": "Dr. Spec7_N1",
-                            "doc_id": 20,
-                            "hora_inicio": "12:45",
-                            "hora_fin": "13:30",
-                            "duracion": 45
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Neurocirugía",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 3003,
-                            "doc": "Dr. Spec3_N2",
-                            "doc_id": 9,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 3005,
-                            "doc": "Dr. Spec3_N2",
-                            "doc_id": 9,
-                            "hora_inicio": "10:30",
-                            "hora_fin": "11:15",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 3027,
-                            "doc": "Dr. Spec3_N2",
-                            "doc_id": 9,
-                            "hora_inicio": "11:15",
-                            "hora_fin": "13:15",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 3033,
-                            "doc": "Dr. Spec3_N2",
-                            "doc_id": 9,
-                            "hora_inicio": "13:15",
-                            "hora_fin": "14:00",
-                            "duracion": 45
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "General",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 2017,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 2015,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "09:30",
-                            "hora_fin": "12:00",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 2028,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "12:00",
-                            "hora_fin": "12:45",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 2031,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "12:45",
-                            "hora_fin": "13:30",
-                            "duracion": 45
-                        }
-                    ]
-                }
-            },
-            "Tarde": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Oftalmología",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 5032,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "15:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 5013,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "15:30",
-                            "hora_fin": "17:00",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 5000,
-                            "doc": "Dr. Spec5_N2",
-                            "doc_id": 15,
-                            "hora_inicio": "17:00",
-                            "hora_fin": "18:30",
-                            "duracion": 90
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Plástica",
-                    "utilizacion_porcentaje": 95.83333333333334,
-                    "cirugias": [
-                        {
-                            "p": 6002,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "15:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 6033,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "15:00",
-                            "hora_fin": "17:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 6012,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "17:00",
-                            "hora_fin": "17:45",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 6003,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "17:45",
-                            "hora_fin": "18:45",
-                            "duracion": 60
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "General",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 2029,
-                            "doc": "Dr. Spec2_N2",
-                            "doc_id": 6,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "14:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 2034,
-                            "doc": "Dr. Spec2_N2",
-                            "doc_id": 6,
-                            "hora_inicio": "14:00",
-                            "hora_fin": "15:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 2019,
-                            "doc": "Dr. Spec2_N2",
-                            "doc_id": 6,
-                            "hora_inicio": "15:00",
-                            "hora_fin": "17:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 2010,
-                            "doc": "Dr. Spec2_N2",
-                            "doc_id": 6,
-                            "hora_inicio": "17:30",
-                            "hora_fin": "19:00",
-                            "duracion": 90
-                        }
-                    ]
-                }
-            }
-        },
-        "Jueves": {
-            "Mañana": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Urología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 7006,
-                            "doc": "Dr. Spec7_N2",
-                            "doc_id": 21,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 7026,
-                            "doc": "Dr. Spec7_N2",
-                            "doc_id": 21,
-                            "hora_inicio": "10:30",
-                            "hora_fin": "11:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 7012,
-                            "doc": "Dr. Spec7_N2",
-                            "doc_id": 21,
-                            "hora_inicio": "11:30",
-                            "hora_fin": "12:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 7021,
-                            "doc": "Dr. Spec7_N2",
-                            "doc_id": 21,
-                            "hora_inicio": "12:30",
-                            "hora_fin": "14:00",
-                            "duracion": 90
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "General",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 2011,
-                            "doc": "Dr. Spec2_N1",
-                            "doc_id": 5,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 2005,
-                            "doc": "Dr. Spec2_N1",
-                            "doc_id": 5,
-                            "hora_inicio": "09:00",
-                            "hora_fin": "11:00",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 2009,
-                            "doc": "Dr. Spec2_N1",
-                            "doc_id": 5,
-                            "hora_inicio": "11:00",
-                            "hora_fin": "13:30",
-                            "duracion": 150
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "Oftalmología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 5018,
-                            "doc": "Dr. Spec5_N0",
-                            "doc_id": 13,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 5001,
-                            "doc": "Dr. Spec5_N0",
-                            "doc_id": 13,
-                            "hora_inicio": "10:30",
-                            "hora_fin": "12:30",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 5024,
-                            "doc": "Dr. Spec5_N0",
-                            "doc_id": 13,
-                            "hora_inicio": "12:30",
-                            "hora_fin": "14:00",
-                            "duracion": 90
-                        }
-                    ]
-                }
-            },
-            "Tarde": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Urología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 7018,
-                            "doc": "Dr. Spec7_N0",
-                            "doc_id": 19,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "14:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 7010,
-                            "doc": "Dr. Spec7_N0",
-                            "doc_id": 19,
-                            "hora_inicio": "14:30",
-                            "hora_fin": "16:30",
-                            "duracion": 120
-                        },
-                        {
-                            "p": 7004,
-                            "doc": "Dr. Spec7_N0",
-                            "doc_id": 19,
-                            "hora_inicio": "16:30",
-                            "hora_fin": "17:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 7001,
-                            "doc": "Dr. Spec7_N0",
-                            "doc_id": 19,
-                            "hora_inicio": "17:30",
-                            "hora_fin": "19:00",
-                            "duracion": 90
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 1008,
-                            "doc": "Dr. Spec1_N2",
-                            "doc_id": 3,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "14:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 1021,
-                            "doc": "Dr. Spec1_N2",
-                            "doc_id": 3,
-                            "hora_inicio": "14:00",
-                            "hora_fin": "16:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 1026,
-                            "doc": "Dr. Spec1_N2",
-                            "doc_id": 3,
-                            "hora_inicio": "16:30",
-                            "hora_fin": "17:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 1024,
-                            "doc": "Dr. Spec1_N2",
-                            "doc_id": 3,
-                            "hora_inicio": "17:30",
-                            "hora_fin": "19:00",
-                            "duracion": 90
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "Plástica",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 6004,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "15:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 6025,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "15:30",
-                            "hora_fin": "17:00",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 6015,
-                            "doc": "Dr. Spec6_N2",
-                            "doc_id": 18,
-                            "hora_inicio": "17:00",
-                            "hora_fin": "18:30",
-                            "duracion": 90
-                        }
-                    ]
-                }
-            }
-        },
-        "Viernes": {
-            "Mañana": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "General",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 2016,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 2033,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "09:30",
-                            "hora_fin": "11:00",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 2021,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "11:00",
-                            "hora_fin": "12:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 2025,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "12:30",
-                            "hora_fin": "13:15",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 2027,
-                            "doc": "Dr. Spec2_N0",
-                            "doc_id": 4,
-                            "hora_inicio": "13:15",
-                            "hora_fin": "14:00",
-                            "duracion": 45
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Ginecología",
-                    "utilizacion_porcentaje": 91.66666666666666,
-                    "cirugias": [
-                        {
-                            "p": 4012,
-                            "doc": "Dr. Spec4_N1",
-                            "doc_id": 11,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "09:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 4011,
-                            "doc": "Dr. Spec4_N1",
-                            "doc_id": 11,
-                            "hora_inicio": "09:00",
-                            "hora_fin": "11:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 4032,
-                            "doc": "Dr. Spec4_N1",
-                            "doc_id": 11,
-                            "hora_inicio": "11:30",
-                            "hora_fin": "12:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 4031,
-                            "doc": "Dr. Spec4_N1",
-                            "doc_id": 11,
-                            "hora_inicio": "12:30",
-                            "hora_fin": "13:30",
-                            "duracion": 60
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "Oftalmología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 5012,
-                            "doc": "Dr. Spec5_N1",
-                            "doc_id": 14,
-                            "hora_inicio": "08:00",
-                            "hora_fin": "10:30",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 5022,
-                            "doc": "Dr. Spec5_N1",
-                            "doc_id": 14,
-                            "hora_inicio": "10:30",
-                            "hora_fin": "11:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 5008,
-                            "doc": "Dr. Spec5_N1",
-                            "doc_id": 14,
-                            "hora_inicio": "11:30",
-                            "hora_fin": "12:30",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 5023,
-                            "doc": "Dr. Spec5_N1",
-                            "doc_id": 14,
-                            "hora_inicio": "12:30",
-                            "hora_fin": "14:00",
-                            "duracion": 90
-                        }
-                    ]
-                }
-            },
-            "Tarde": {
-                "Quirófano Central 1 (Alta)": {
-                    "especialidad": "Traumatología",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 1033,
-                            "doc": "Dr. Spec1_N1",
-                            "doc_id": 2,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "13:45",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 1000,
-                            "doc": "Dr. Spec1_N1",
-                            "doc_id": 2,
-                            "hora_inicio": "13:45",
-                            "hora_fin": "16:15",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 1012,
-                            "doc": "Dr. Spec1_N1",
-                            "doc_id": 2,
-                            "hora_inicio": "16:15",
-                            "hora_fin": "17:00",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 1016,
-                            "doc": "Dr. Spec1_N1",
-                            "doc_id": 2,
-                            "hora_inicio": "17:00",
-                            "hora_fin": "18:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 1019,
-                            "doc": "Dr. Spec1_N1",
-                            "doc_id": 2,
-                            "hora_inicio": "18:00",
-                            "hora_fin": "19:00",
-                            "duracion": 60
-                        }
-                    ]
-                },
-                "Quirófano Central 2 (Media)": {
-                    "especialidad": "Neurocirugía",
-                    "utilizacion_porcentaje": 100.0,
-                    "cirugias": [
-                        {
-                            "p": 3009,
-                            "doc": "Dr. Spec3_N0",
-                            "doc_id": 7,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "14:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 3023,
-                            "doc": "Dr. Spec3_N0",
-                            "doc_id": 7,
-                            "hora_inicio": "14:00",
-                            "hora_fin": "15:30",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 3032,
-                            "doc": "Dr. Spec3_N0",
-                            "doc_id": 7,
-                            "hora_inicio": "15:30",
-                            "hora_fin": "17:00",
-                            "duracion": 90
-                        },
-                        {
-                            "p": 3007,
-                            "doc": "Dr. Spec3_N0",
-                            "doc_id": 7,
-                            "hora_inicio": "17:00",
-                            "hora_fin": "19:00",
-                            "duracion": 120
-                        }
-                    ]
-                },
-                "Quirófano Ambulatorio (Baja)": {
-                    "especialidad": "Plástica",
-                    "utilizacion_porcentaje": 95.83333333333334,
-                    "cirugias": [
-                        {
-                            "p": 6017,
-                            "doc": "Dr. Spec6_N0",
-                            "doc_id": 16,
-                            "hora_inicio": "13:00",
-                            "hora_fin": "13:45",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 6005,
-                            "doc": "Dr. Spec6_N0",
-                            "doc_id": 16,
-                            "hora_inicio": "13:45",
-                            "hora_fin": "14:30",
-                            "duracion": 45
-                        },
-                        {
-                            "p": 6028,
-                            "doc": "Dr. Spec6_N0",
-                            "doc_id": 16,
-                            "hora_inicio": "14:30",
-                            "hora_fin": "17:00",
-                            "duracion": 150
-                        },
-                        {
-                            "p": 6023,
-                            "doc": "Dr. Spec6_N0",
-                            "doc_id": 16,
-                            "hora_inicio": "17:00",
-                            "hora_fin": "18:00",
-                            "duracion": 60
-                        },
-                        {
-                            "p": 6020,
-                            "doc": "Dr. Spec6_N0",
-                            "doc_id": 16,
-                            "hora_inicio": "18:00",
-                            "hora_fin": "18:45",
-                            "duracion": 45
-                        }
-                    ]
-                }
-            }
-        }
+    "martes": {
+      "Q1": "TRA",
+      "Q2": "URO",
+      "Q3": "CG"
+    },
+    "miercoles": {
+      "Q1": "URO",
+      "Q2": "TRA",
+      "Q3": "TRA"
+    },
+    "jueves": {
+      "Q1": "CG",
+      "Q2": "CG",
+      "Q3": "URO"
+    },
+    "viernes": {
+      "Q1": "TRA",
+      "Q2": "TRA",
+      "Q3": "URO"
     }
+  },
+  "agenda": {
+    "lunes": {
+      "Q1": {
+        "especialidad": "CG",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P78",
+            "especialidad": "CG",
+            "duracion_min": 180,
+            "prioridad_clinica": 9.44
+          },
+          {
+            "paciente_id": "P62",
+            "especialidad": "CG",
+            "duracion_min": 120,
+            "prioridad_clinica": 7.66
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "CG",
+        "minutos_utilizados": 270,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P66",
+            "especialidad": "CG",
+            "duracion_min": 180,
+            "prioridad_clinica": 9.89
+          },
+          {
+            "paciente_id": "P59",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 9.17
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P22",
+            "especialidad": "TRA",
+            "duracion_min": 45,
+            "prioridad_clinica": 9.66
+          },
+          {
+            "paciente_id": "P36",
+            "especialidad": "TRA",
+            "duracion_min": 120,
+            "prioridad_clinica": 9.62
+          },
+          {
+            "paciente_id": "P1",
+            "especialidad": "TRA",
+            "duracion_min": 90,
+            "prioridad_clinica": 9.53
+          },
+          {
+            "paciente_id": "P14",
+            "especialidad": "TRA",
+            "duracion_min": 45,
+            "prioridad_clinica": 6.57
+          }
+        ]
+      }
+    },
+    "martes": {
+      "Q1": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P11",
+            "especialidad": "TRA",
+            "duracion_min": 150,
+            "prioridad_clinica": 8.35
+          },
+          {
+            "paciente_id": "P17",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 8.15
+          },
+          {
+            "paciente_id": "P3",
+            "especialidad": "TRA",
+            "duracion_min": 90,
+            "prioridad_clinica": 6.25
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "URO",
+        "minutos_utilizados": 285,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P106",
+            "especialidad": "URO",
+            "duracion_min": 60,
+            "prioridad_clinica": 9.91
+          },
+          {
+            "paciente_id": "P81",
+            "especialidad": "URO",
+            "duracion_min": 120,
+            "prioridad_clinica": 9.88
+          },
+          {
+            "paciente_id": "P94",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 5.57
+          },
+          {
+            "paciente_id": "P90",
+            "especialidad": "URO",
+            "duracion_min": 60,
+            "prioridad_clinica": 5.26
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "CG",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P52",
+            "especialidad": "CG",
+            "duracion_min": 120,
+            "prioridad_clinica": 9.94
+          },
+          {
+            "paciente_id": "P73",
+            "especialidad": "CG",
+            "duracion_min": 45,
+            "prioridad_clinica": 8.21
+          },
+          {
+            "paciente_id": "P64",
+            "especialidad": "CG",
+            "duracion_min": 45,
+            "prioridad_clinica": 8.11
+          },
+          {
+            "paciente_id": "P57",
+            "especialidad": "CG",
+            "duracion_min": 45,
+            "prioridad_clinica": 7.82
+          },
+          {
+            "paciente_id": "P58",
+            "especialidad": "CG",
+            "duracion_min": 45,
+            "prioridad_clinica": 7.27
+          }
+        ]
+      }
+    },
+    "miercoles": {
+      "Q1": {
+        "especialidad": "URO",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P99",
+            "especialidad": "URO",
+            "duracion_min": 60,
+            "prioridad_clinica": 8.56
+          },
+          {
+            "paciente_id": "P120",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 8.21
+          },
+          {
+            "paciente_id": "P118",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 8.2
+          },
+          {
+            "paciente_id": "P109",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 7.5
+          },
+          {
+            "paciente_id": "P114",
+            "especialidad": "URO",
+            "duracion_min": 60,
+            "prioridad_clinica": 3.43
+          },
+          {
+            "paciente_id": "P119",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 3.42
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P29",
+            "especialidad": "TRA",
+            "duracion_min": 120,
+            "prioridad_clinica": 8.98
+          },
+          {
+            "paciente_id": "P34",
+            "especialidad": "TRA",
+            "duracion_min": 90,
+            "prioridad_clinica": 8.95
+          },
+          {
+            "paciente_id": "P19",
+            "especialidad": "TRA",
+            "duracion_min": 90,
+            "prioridad_clinica": 7.57
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 270,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P28",
+            "especialidad": "TRA",
+            "duracion_min": 180,
+            "prioridad_clinica": 8.4
+          },
+          {
+            "paciente_id": "P35",
+            "especialidad": "TRA",
+            "duracion_min": 90,
+            "prioridad_clinica": 7.36
+          }
+        ]
+      }
+    },
+    "jueves": {
+      "Q1": {
+        "especialidad": "CG",
+        "minutos_utilizados": 285,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P71",
+            "especialidad": "CG",
+            "duracion_min": 120,
+            "prioridad_clinica": 8.04
+          },
+          {
+            "paciente_id": "P41",
+            "especialidad": "CG",
+            "duracion_min": 60,
+            "prioridad_clinica": 7.21
+          },
+          {
+            "paciente_id": "P77",
+            "especialidad": "CG",
+            "duracion_min": 60,
+            "prioridad_clinica": 6.5
+          },
+          {
+            "paciente_id": "P69",
+            "especialidad": "CG",
+            "duracion_min": 45,
+            "prioridad_clinica": 5.32
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "CG",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P43",
+            "especialidad": "CG",
+            "duracion_min": 180,
+            "prioridad_clinica": 8.18
+          },
+          {
+            "paciente_id": "P65",
+            "especialidad": "CG",
+            "duracion_min": 60,
+            "prioridad_clinica": 7.23
+          },
+          {
+            "paciente_id": "P76",
+            "especialidad": "CG",
+            "duracion_min": 60,
+            "prioridad_clinica": 6.32
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "URO",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P112",
+            "especialidad": "URO",
+            "duracion_min": 150,
+            "prioridad_clinica": 9.65
+          },
+          {
+            "paciente_id": "P104",
+            "especialidad": "URO",
+            "duracion_min": 90,
+            "prioridad_clinica": 8.95
+          },
+          {
+            "paciente_id": "P98",
+            "especialidad": "URO",
+            "duracion_min": 60,
+            "prioridad_clinica": 7.29
+          }
+        ]
+      }
+    },
+    "viernes": {
+      "Q1": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 270,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P27",
+            "especialidad": "TRA",
+            "duracion_min": 180,
+            "prioridad_clinica": 7.31
+          },
+          {
+            "paciente_id": "P18",
+            "especialidad": "TRA",
+            "duracion_min": 45,
+            "prioridad_clinica": 6.17
+          },
+          {
+            "paciente_id": "P13",
+            "especialidad": "TRA",
+            "duracion_min": 45,
+            "prioridad_clinica": 5.93
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P16",
+            "especialidad": "TRA",
+            "duracion_min": 150,
+            "prioridad_clinica": 9.31
+          },
+          {
+            "paciente_id": "P9",
+            "especialidad": "TRA",
+            "duracion_min": 150,
+            "prioridad_clinica": 8.73
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "URO",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P105",
+            "especialidad": "URO",
+            "duracion_min": 180,
+            "prioridad_clinica": 9.57
+          },
+          {
+            "paciente_id": "P83",
+            "especialidad": "URO",
+            "duracion_min": 60,
+            "prioridad_clinica": 7.87
+          },
+          {
+            "paciente_id": "P116",
+            "especialidad": "URO",
+            "duracion_min": 60,
+            "prioridad_clinica": 5.83
+          }
+        ]
+      }
+    }
+  },
+  "resumen": {
+    "total_pacientes": 120,
+    "pacientes_programados": 49,
+    "pacientes_pendientes": 71,
+    "ids_pacientes_pendientes": [
+      "P37",
+      "P20",
+      "P103",
+      "P101",
+      "P72",
+      "P85",
+      "P49",
+      "P55",
+      "P63",
+      "P42",
+      "P86",
+      "P70",
+      "P10",
+      "P95",
+      "P8",
+      "P92",
+      "P74",
+      "P50",
+      "P100",
+      "P53",
+      "P102",
+      "P60",
+      "P12",
+      "P93",
+      "P108",
+      "P67",
+      "P115",
+      "P39",
+      "P107",
+      "P48",
+      "P82",
+      "P75",
+      "P4",
+      "P88",
+      "P97",
+      "P47",
+      "P46",
+      "P30",
+      "P79",
+      "P51",
+      "P56",
+      "P32",
+      "P61",
+      "P25",
+      "P89",
+      "P84",
+      "P113",
+      "P5",
+      "P33",
+      "P45",
+      "P23",
+      "P87",
+      "P38",
+      "P96",
+      "P40",
+      "P26",
+      "P24",
+      "P7",
+      "P117",
+      "P21",
+      "P15",
+      "P31",
+      "P91",
+      "P68",
+      "P6",
+      "P80",
+      "P54",
+      "P44",
+      "P2",
+      "P111",
+      "P110"
+    ]
+  },
+  "historial_fitness": [
+    366.1741,
+    368.8919,
+    371.4726,
+    373.5942,
+    376.3214,
+    376.3214,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417,
+    382.2417
+  ]
 }

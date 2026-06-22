@@ -10,7 +10,7 @@ Ejecutar con:
 from __future__ import annotations
 import sys
 
-from models import Patient, Staff
+from back.models import Patient, Staff
 from sequence import sequence_or, SequencedOR
 
 

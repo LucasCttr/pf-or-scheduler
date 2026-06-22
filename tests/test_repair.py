@@ -5,8 +5,8 @@ import pytest
 np = pytest.importorskip("numpy")
 pytest.importorskip("pulp")
 
-from genetic_algorithm import GeneticAlgorithm, Individual
-from models import GAConfig, OperatingRoom, Specialty, Staff
+from back.genetic_algorithm import GeneticAlgorithm, Individual
+from back.models import GAConfig, OperatingRoom, Specialty, Staff
 
 
 FREE_SPECIALTY_ID = 0

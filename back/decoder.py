@@ -63,15 +63,29 @@ def build_shift_schedule(
         b["or_idx"]: block_start + min(block_duration, b["t_max"]) for b in active
     }
 
-    # surg_clock ahora es simplemente el inicio del bloque (o cuando el médico llega)
-    surg_clock: Dict[int, int] = {
-        s.id: block_start for b in active for s in b["surgeons"]
-    }
+    # surg_clock: toma el estado acumulado del día si viene de un turno previo.
+    # Esto garantiza que un cirujano que ya operó en el turno mañana
+    # no sea reasignado solapando sus horas en el turno tarde.
+    surg_clock_previo: Dict[int, int] = capacity_params.get("surg_clock_previo", {})
+    surg_clock: Dict[int, int] = {}
+    for b in active:
+        for s in b["surgeons"]:
+            if s.id not in surg_clock:
+                # Si el cirujano ya operó hoy, su reloj arranca desde donde terminó
+                surg_clock[s.id] = max(
+                    surg_clock_previo.get(s.id, block_start),
+                    block_start,
+                )
 
-    # Track remaining minutes per surgeon locally to avoid mutating shared Staff state
-    remaining_minutes: Dict[int, int] = {
-        s.id: s.get_available_minutes_in_block(day_idx) for b in active for s in b["surgeons"]
-    }
+    # Presupuesto de minutos restantes por cirujano (acumulado entre turnos del día)
+    remaining_minutes_previo: Dict[int, int] = capacity_params.get("remaining_minutes_previo", {})
+    remaining_minutes: Dict[int, int] = {}
+    for b in active:
+        for s in b["surgeons"]:
+            if s.id not in remaining_minutes:
+                avail = s.get_available_minutes_in_block(day_idx, True, block_duration)
+                # Restar lo que ya consumió en turnos previos
+                remaining_minutes[s.id] = avail - remaining_minutes_previo.get(s.id, 0)
 
     candidatos = []
     vistos: set = set()
@@ -85,8 +99,8 @@ def build_shift_schedule(
                 s
                 for s in b["surgeons"]
                 if (forced is None or s.id == forced)
-                # VALIDACIÓN DE BOLSA: ¿Tiene tiempo en su presupuesto?
-                and s.get_available_minutes_in_block(day_idx) >= p.estimated_duration
+                # Verificar minutos RESTANTES (descontando lo asignado en turnos previos)
+                and remaining_minutes.get(s.id, 0) >= p.estimated_duration
             ]
             if elegibles:
                 candidatos.append((p, b["or_idx"], elegibles))
@@ -124,9 +138,11 @@ def build_shift_schedule(
         inicio, cirujano = mejor
         fin = inicio + p.estimated_duration
 
-        # ── REGISTRO DE CONSUMO (local) ──────────────────────────────────────
-        remaining_minutes[cirujano.id] -= p.estimated_duration
-        # ────────────────────────────────────────────────────────────────────
+        # Decrementar el presupuesto de minutos del cirujano (Local)
+        remaining_minutes[cirujano.id] = remaining_minutes.get(cirujano.id, 0) - p.estimated_duration
+
+        # ✅ APLICAR SIEMPRE EL CONSUMO GLOBAL
+        cirujano.consumir_minutos(p.estimated_duration)
 
         per_or[q]["asignaciones"].append(
             {
@@ -155,4 +171,34 @@ def build_shift_schedule(
         used = per_or[idx]["uso_tiempo"]
         per_or[idx]["utilizacion_porcentaje"] = (used / t_max * 100.0) if t_max > 0 else 0.0
 
-    return {"fitness": fitness_total, "all_pacientes_ids": all_ids, "per_or": per_or}
+    # Calcular consumo acumulado por cirujano (para pasarlo al siguiente turno)
+    consumed_today = {
+        s_id: remaining_minutes_previo.get(s_id, 0) + (
+            capacity_params.get("surg_clock_previo", {}).get(s_id, block_start) != surg_clock.get(s_id, block_start)
+            and sum(
+                a["duracion"] for q_data in per_or.values()
+                for a in q_data["asignaciones"]
+                if a.get("doc_id") == s_id
+            ) or 0
+        )
+        for s_id in surg_clock
+    }
+    # Versión simplificada: acumular minutos usados por cirujano este turno
+    used_this_shift: Dict[int, int] = {}
+    for q_data in per_or.values():
+        for a in q_data["asignaciones"]:
+            sid = a.get("doc_id")
+            if sid is not None:
+                used_this_shift[sid] = used_this_shift.get(sid, 0) + a["duracion"]
+    accumulated_minutes = {
+        s_id: remaining_minutes_previo.get(s_id, 0) + used_this_shift.get(s_id, 0)
+        for s_id in set(list(remaining_minutes_previo.keys()) + list(used_this_shift.keys()))
+    }
+
+    return {
+        "fitness":            fitness_total,
+        "all_pacientes_ids":  all_ids,
+        "per_or":             per_or,
+        "surg_clock_final":   surg_clock,          # para el siguiente turno del día
+        "consumed_minutes":   accumulated_minutes,  # minutos acumulados hoy por cirujano
+    }

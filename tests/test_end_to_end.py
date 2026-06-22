@@ -6,7 +6,7 @@ import pytest
 np = pytest.importorskip("numpy")
 pytest.importorskip("pulp")
 
-from genetic_algorithm import GeneticAlgorithm
+from back.genetic_algorithm import GeneticAlgorithm
 from tests.builders import deterministic_end_to_end_scenario
 
 

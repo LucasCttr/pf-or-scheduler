@@ -6,7 +6,7 @@ project_root = str(Path(__file__).resolve().parents[1])
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from models import Staff, OperatingRoom, Patient, Specialty, GAConfig
+from back.models import Staff, OperatingRoom, Patient, Specialty, GAConfig
 from backup.mip import solve_mip_for_shift
 from sequence import sequence_shift
 

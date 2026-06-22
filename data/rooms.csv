@@ -1,0 +1,4 @@
+id,name,room_type,daily_capacity_minutes
+Q1,Quirofano 1,1,300
+Q2,Quirofano 2,2,300
+Q3,Quirofano 3,3,300

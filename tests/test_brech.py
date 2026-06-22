@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from models import Patient, Staff, OperatingRoom
+from back.models import Patient, Staff, OperatingRoom
 from backup.mip import solve_mip_for_shift
 from sequence import sequence_shift
 

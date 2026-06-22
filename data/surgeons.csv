@@ -1,0 +1,10 @@
+id,name,specialty_id,available_days,contract_hours_week
+S1,Dr. Lopez,TRA,lunes;martes;miercoles,20
+S2,Dra. Diaz,TRA,jueves;viernes,15
+S3,Dr. Fernandez,TRA,lunes;miercoles;viernes,18
+S4,Dr. Perez,CG,lunes;miercoles;viernes,18
+S5,Dra. Sosa,CG,martes;jueves,14
+S6,Dr. Acosta,CG,lunes;martes;jueves,16
+S7,Dra. Gomez,URO,martes;jueves,12
+S8,Dr. Ruiz,URO,lunes;miercoles;viernes,15
+S9,Dra. Medina,URO,miercoles;jueves;viernes,14
