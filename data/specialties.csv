@@ -1,4 +1,7 @@
 id,name,min_blocks
-TRA,Traumatologia,4
-CG,Cirugia General,4
-URO,Urologia,3
+TRA,Traumatologia,3
+CG,Cirugia General,3
+URO,Urologia,2
+NEU,Neurocirugia,2
+GIN,Ginecologia,2
+OFT,Oftalmologia,2

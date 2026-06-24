@@ -94,7 +94,6 @@ def main():
         stagnation_limit=30,
         alpha=1.0,
         beta=0.3,
-        delta=0.1,
     )
 
     best_chromosome, best_fitness, best_agenda = ga.run()

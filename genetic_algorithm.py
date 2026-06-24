@@ -13,6 +13,7 @@ Implementa las secciones 10.4.5 (Funcion de aptitud) y 10.4.6
   - Elitismo.
   - Criterio de parada doble: generaciones maximas o estancamiento.
 """
+
 import copy
 import random
 from typing import Dict, List, Tuple
@@ -22,27 +23,34 @@ from decoder import build_agenda
 
 
 class GeneticAlgorithm:
-    def __init__(self,
-                 days: List[str],
-                 rooms: List[Room],
-                 specialties: List[Specialty],
-                 surgeons: List[Surgeon],
-                 procedures: List[Procedure],
-                 patients: List[Patient],
-                 population_size: int = 50,
-                 generations: int = 200,
-                 tournament_size: int = 3,
-                 crossover_rate: float = 0.8,
-                 mutation_rate: float = 0.05,
-                 elitism_rate: float = 0.1,
-                 stagnation_limit: int = 30,
-                 alpha: float = 1.0,
-                 beta: float = 0.3,
-                 delta: float = 0.1):
+    def __init__(
+        self,
+        days: List[str],
+        rooms: List[Room],
+        specialties: List[Specialty],
+        surgeons: List[Surgeon],
+        procedures: List[Procedure],
+        patients: List[Patient],
+        population_size: int = 50,
+        generations: int = 200,
+        tournament_size: int = 3,
+        crossover_rate: float = 0.8,
+        mutation_rate: float = 0.05,
+        elitism_rate: float = 0.1,
+        stagnation_limit: int = 30,
+        alpha: float = 1.0,
+        beta: float = 0.3,
+        delta: float = 0.1,
+    ):
         """
-        alpha, beta, delta: ponderaciones de la funcion de aptitud global
-            Fitness = alpha*PriorityScore + beta*ORUtilization - delta*WorkloadBalance
-            Se espera alpha > beta > delta, segun lo definido en el documento.
+        alpha, beta: ponderaciones de la funcion de aptitud global
+
+        Fitness =
+            alpha*PriorityScore
+          + beta*ORUtilization
+
+        Se espera alpha > beta ya que la prioridad clínica
+        constituye el objetivo principal del sistema.
         """
         self.days = days
         self.rooms = rooms
@@ -67,9 +75,10 @@ class GeneticAlgorithm:
 
         self.alpha = alpha
         self.beta = beta
-        self.delta = delta
 
-        self.total_available_time = sum(r.daily_capacity_minutes for r in rooms) * len(days)
+        self.total_available_time = sum(r.daily_capacity_minutes for r in rooms) * len(
+            days
+        )
 
         self.best_individual: Dict[Block, str] = None
         self.best_fitness: float = float("-inf")
@@ -93,15 +102,20 @@ class GeneticAlgorithm:
         for sid in chromosome.values():
             counts[sid] += 1
 
-        deficit = {sid: max(0, self.min_blocks.get(sid, 0) - counts[sid])
-                   for sid in self.specialty_ids}
+        deficit = {
+            sid: max(0, self.min_blocks.get(sid, 0) - counts[sid])
+            for sid in self.specialty_ids
+        }
 
         for sid, need in deficit.items():
             if need <= 0:
                 continue
             # Bloques candidatos a donar: especialidades con superavit sobre su minimo
-            donors = [b for b, s in chromosome.items()
-                      if counts[s] > self.min_blocks.get(s, 0)]
+            donors = [
+                b
+                for b, s in chromosome.items()
+                if counts[s] > self.min_blocks.get(s, 0)
+            ]
             random.shuffle(donors)
             for b in donors:
                 if need <= 0:
@@ -117,46 +131,38 @@ class GeneticAlgorithm:
     # 10.4.5 Funcion de aptitud global
     # ------------------------------------------------------------------
     def _evaluate(self, chromosome: Dict[Block, str]) -> Tuple[float, Agenda]:
-        agenda = build_agenda(chromosome, self.patients, self.procedures,
-                               self.surgeons, self.rooms_by_id)
+
+        agenda = build_agenda(
+            chromosome, self.patients, self.procedures, self.surgeons, self.rooms_by_id
+        )
 
         surgeries = agenda.all_surgeries()
         patients_by_id = {p.id: p for p in self.patients}
 
-        # PriorityScore = suma de prioridad clinica de pacientes programados
-        priority_score = sum(patients_by_id[s.patient_id].clinical_priority
-                              for s in surgeries)
+        # PriorityScore
+        priority_score = sum(
+            patients_by_id[s.patient_id].clinical_priority for s in surgeries
+        )
 
-        # ORUtilization = tiempo usado / tiempo total disponible
+        # ORUtilization
         used_time = sum(agenda.used_time.values())
-        or_utilization = (used_time / self.total_available_time
-                           if self.total_available_time else 0.0)
 
-        # WorkloadBalance = desvio estandar de horas asignadas por cirujano activo
-        hours_by_surgeon: Dict[str, float] = {sid: 0.0 for sid in self.surgeons}
-        for s in surgeries:
-            patient = patients_by_id[s.patient_id]
-            hours_by_surgeon[patient.surgeon_id] += s.duration / 60.0
+        or_utilization = (
+            used_time / self.total_available_time
+            if self.total_available_time > 0
+            else 0.0
+        )
 
-        active_hours = [h for h in hours_by_surgeon.values() if h > 0]
-        if len(active_hours) > 1:
-            mean_h = sum(active_hours) / len(active_hours)
-            variance = sum((h - mean_h) ** 2 for h in active_hours) / len(active_hours)
-            workload_balance = variance ** 0.5
-        else:
-            workload_balance = 0.0
-
-        fitness = (self.alpha * priority_score
-                   + self.beta * or_utilization
-                   - self.delta * workload_balance)
+        fitness = self.alpha * priority_score + self.beta * or_utilization
 
         return fitness, agenda
 
     # ------------------------------------------------------------------
     # 10.4.6.2 Seleccion por torneo
     # ------------------------------------------------------------------
-    def _tournament_selection(self, population: List[Dict[Block, str]],
-                               fitnesses: List[float]) -> Dict[Block, str]:
+    def _tournament_selection(
+        self, population: List[Dict[Block, str]], fitnesses: List[float]
+    ) -> Dict[Block, str]:
         contenders = random.sample(range(len(population)), self.tournament_size)
         best_idx = max(contenders, key=lambda i: fitnesses[i])
         return population[best_idx]
@@ -164,8 +170,9 @@ class GeneticAlgorithm:
     # ------------------------------------------------------------------
     # 10.4.6.3 Operador de cruza (un punto de corte)
     # ------------------------------------------------------------------
-    def _crossover(self, parent1: Dict[Block, str],
-                    parent2: Dict[Block, str]) -> Tuple[Dict[Block, str], Dict[Block, str]]:
+    def _crossover(
+        self, parent1: Dict[Block, str], parent2: Dict[Block, str]
+    ) -> Tuple[Dict[Block, str], Dict[Block, str]]:
         if random.random() > self.crossover_rate:
             return dict(parent1), dict(parent2)
 
@@ -206,8 +213,12 @@ class GeneticAlgorithm:
 
         for generation in range(self.generations):
             # 10.4.6.6 Elitismo: los mejores pasan sin modificacion
-            ranked = sorted(range(len(population)), key=lambda i: fitnesses[i], reverse=True)
-            new_population = [copy.deepcopy(population[i]) for i in ranked[:self.elitism_count]]
+            ranked = sorted(
+                range(len(population)), key=lambda i: fitnesses[i], reverse=True
+            )
+            new_population = [
+                copy.deepcopy(population[i]) for i in ranked[: self.elitism_count]
+            ]
 
             while len(new_population) < self.population_size:
                 parent1 = self._tournament_selection(population, fitnesses)

@@ -5,7 +5,7 @@ Carga de los datos de entrada del sistema desde archivos CSV.
 Se esperan los siguientes archivos dentro de la carpeta `data/`:
   - specialties.csv : id, name, min_blocks
   - rooms.csv       : id, name, room_type, daily_capacity_minutes
-  - procedures.csv  : id, name, specialty_id, required_room_type
+    - procedures.csv  : id, name, specialty_id, required_room_type, estimated_duration
   - surgeons.csv    : id, name, specialty_id, available_days, contract_hours_week
                        (available_days separado por ';', ej: "lunes;martes")
   - patients.csv    : id, specialty_id, procedure_id, surgeon_id,
@@ -38,9 +38,21 @@ def load_rooms(path: str) -> List[Room]:
 
 def load_procedures(path: str) -> List[Procedure]:
     rows = _read_csv(path)
-    return [Procedure(id=r["id"], name=r["name"], specialty_id=r["specialty_id"],
-                       required_room_type=int(r["required_room_type"]))
-            for r in rows]
+    procedures: List[Procedure] = []
+    for r in rows:
+        est = r.get("estimated_duration")
+        try:
+            est_val = int(est) if est not in (None, "") else 0
+        except ValueError:
+            est_val = 0
+        procedures.append(Procedure(
+            id=r["id"],
+            name=r["name"],
+            specialty_id=r["specialty_id"],
+            required_room_type=int(r["required_room_type"]),
+            estimated_duration=est_val,
+        ))
+    return procedures
 
 
 def load_surgeons(path: str) -> List[Surgeon]:
@@ -58,12 +70,12 @@ def load_surgeons(path: str) -> List[Surgeon]:
 
 def load_patients(path: str) -> List[Patient]:
     rows = _read_csv(path)
+    # Patients reference a procedure id; estimated duration is read from Procedure.
     return [Patient(
         id=r["id"],
         specialty_id=r["specialty_id"],
         procedure_id=r["procedure_id"],
-        surgeon_id=r["surgeon_id"],
-        estimated_duration=int(r["estimated_duration"]),
+        surgeon_id=r.get("surgeon_id"),
         clinical_priority=float(r["clinical_priority"]),
     ) for r in rows]
 

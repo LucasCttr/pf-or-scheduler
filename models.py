@@ -42,6 +42,7 @@ class Procedure:
     name: str
     specialty_id: str
     required_room_type: int
+    estimated_duration: int  # minutos
 
 
 @dataclass
@@ -51,7 +52,6 @@ class Patient:
     specialty_id: str
     procedure_id: str
     surgeon_id: str
-    estimated_duration: int  # minutos
     clinical_priority: float  # combina prioridad clinica y tiempo en espera
     scheduled: bool = False  # estado utilizado durante la construccion de agenda
 
