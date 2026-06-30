@@ -1,99 +1,95 @@
 """
-models.py — Estructuras de datos del dominio actualizadas.
+models.py
+Estructuras de datos del problema de programacion quirurgica.
+Basado en la seccion 10.4.2 (Modelado de los datos de entrada) y
+10.4.3 (Representacion de las soluciones) del documento.
 """
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Set
 
-@dataclass
-class OperatingRoom:
-    """Representa un quirófano disponible."""
-    id: int
-    name: str
-    or_type: str  # "alta_complejidad" | "media_complejidad" | "baja_complejidad"
-    availability: List[List[bool]] = field(default_factory=list)
-
-    def __post_init__(self):
-        if not self.availability:
-            self.availability = [[True, True] for _ in range(5)]
 
 @dataclass
 class Specialty:
-    """Representa una especialidad médica."""
-    id: int        # 0 = bloque libre
+    """Especialidad medica. Unidad de asignacion del Algoritmo Genetico."""
+    id: str
     name: str
-    compatible_or_types: List[str]
-    min_blocks: int = 1
-    max_blocks: int = 10
+    min_blocks: int = 0  # cantidad minima de bloques semanales garantizados
+
+
+@dataclass
+class Surgeon:
+    """Profesional medico responsable de las cirugias."""
+    id: str
+    name: str
+    specialty_id: str
+    available_days: Set[str]
+    contract_hours_week: float
+
+
+@dataclass
+class Room:
+    """Quirofano fisico disponible."""
+    id: str
+    name: str
+    room_type: int  # nivel de complejidad soportado (mayor = mas complejo)
+    daily_capacity_minutes: int
+
 
 @dataclass
 class Procedure:
-    """Representa un procedimiento quirúrgico del nomenclador."""
-    id: int
+    """Procedimiento quirurgico."""
+    id: str
     name: str
-    specialty_id: int
-    required_room_type: str  # "alta_complejidad" | "media_complejidad" | "baja_complejidad"
+    specialty_id: str
+    required_room_type: int
+    estimated_duration: int  # minutos
+
 
 @dataclass
 class Patient:
-    id: int
-    specialty_id: int
-    procedure_id: int          # Código de procedimiento del nomenclador real (ICD/CIE)
-    estimated_duration: int
-    clinical_priority: float
-    required_roles: List[str] = field(default_factory=list)
-    forced_surgeon_id: Optional[int] = None
+    """Paciente pendiente de intervencion quirurgica."""
+    id: str
+    specialty_id: str
+    procedure_id: str
+    surgeon_id: str
+    clinical_priority: float  # combina prioridad clinica y tiempo en espera
+    scheduled: bool = False  # estado utilizado durante la construccion de agenda
+
+
+@dataclass(frozen=True)
+class Block:
+    """
+    Bloque quirurgico: unidad indivisible de asignacion.
+    Definido por la combinacion de un dia y un quirofano: B = (d, q)
+    """
+    day: str
+    room_id: str
+
+    def __repr__(self):
+        return f"({self.day}, {self.room_id})"
+
 
 @dataclass
-class Staff:
-    id: int
-    name: str
-    role: str
-    enabled_procedures_ids: List[int] = field(default_factory=list) # Matriz de competencias reales
-    availability_hours: Dict[int, Tuple[int, int]] = field(default_factory=dict) # {dia_idx: (min_inicio, min_fin)}
-    main_specialty_id: int = 0
+class ScheduledSurgery:
+    """Cirugia efectivamente programada dentro de un bloque."""
+    patient_id: str
+    block: Block
+    duration: int
 
-    # Modificá estos métodos dentro de la clase Staff en models.py
-    def get_range_for_block(self, day_idx: int, is_morning: bool, block_duration_min: int = 720) -> Tuple[int, int]:
-            """Calcula la intersección horaria entre el contrato del médico y el bloque físico dinámico."""
-            if day_idx not in self.availability_hours:
-                return (0, 0)
-            
-            # El bloque arranca a las 08:00 (480) o 13:00 (780) según el turno
-            b_start = 480 if is_morning else 780
-            b_end = b_start + block_duration_min
-            
-            s_start, s_end = self.availability_hours[day_idx]
-            
-            # Intersección matemática (Matemática de intervalos para tu tesis)
-            overlap_start = max(b_start, s_start)
-            overlap_end = min(b_end, s_end)
-            
-            return (overlap_start, overlap_end) if overlap_start < overlap_end else (0, 0)
-
-    def get_available_minutes_in_block(self, day_idx: int, is_morning: bool, block_duration_min: int = 720) -> int:
-        """Calcula los minutos netos disponibles del médico dentro de los límites del bloque dinámico."""
-        # REUTILIZÁS la función de arriba pasando el parámetro dinámico
-        start, end = self.get_range_for_block(day_idx, is_morning, block_duration_min)
-        return end - start
 
 @dataclass
-class GAConfig:
-    """Todos los parámetros configurables del Algoritmo Genético."""
-    population_size: int = 50
-    max_generations: int = 50
-    convergence_patience: int = 7
-    mutation_rate: float = 0.10
-    crossover_rate: float = 0.85
-    tournament_size: int = 10
-    elite_count: int = 2
-    
-    alpha: float = 0.7  # Prioridad clínica
-    beta: float = 0.3   # Utilización de tiempo
-    
-    n_days: int = 5
-    n_shifts: int = 2
-    block_duration_min: int = 240
-    slot_size_min: int = 15
-    penalty_below_min_quota: float = 50.0
-    penalty_above_max_quota: float = 20.0
-    parallel_workers: int = 24
+class Agenda:
+    """Resultado del decoder: agenda quirurgica semanal completa."""
+    assignments: Dict[Block, List[ScheduledSurgery]]
+    used_time: Dict[Block, int]  # minutos utilizados por bloque (cirugias + limpieza)
+    cleaning_time: Dict[Block, int] = None  # minutos de limpieza consumidos por bloque
+
+    def __post_init__(self):
+        if self.cleaning_time is None:
+            self.cleaning_time = {b: 0 for b in self.assignments}
+
+    def all_surgeries(self) -> List[ScheduledSurgery]:
+        result: List[ScheduledSurgery] = []
+        for surgeries in self.assignments.values():
+            result.extend(surgeries)
+        return result

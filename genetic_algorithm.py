@@ -1,431 +1,265 @@
 """
-genetic_algorithm.py — Nivel 1: Algoritmo Genético optimizado con Fitness Heurístico.
+genetic_algorithm.py
+Algoritmo Genetico (AG) para la distribucion semanal de especialidades
+medicas sobre los quirofanos disponibles.
+
+Implementa las secciones 10.4.5 (Funcion de aptitud) y 10.4.6
+(Operadores geneticos) del documento:
+  - Inicializacion aleatoria de poblacion.
+  - Seleccion por torneo.
+  - Cruza de un punto de corte.
+  - Mutacion uniforme por gen.
+  - Operador de reparacion (cumplimiento de min_blocks por especialidad).
+  - Elitismo.
+  - Criterio de parada doble: generaciones maximas o estancamiento.
 """
+
+import copy
 import random
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple, Dict, Optional
-import numpy as np
+from typing import Dict, List, Tuple
 
-from models import OperatingRoom, Specialty, Procedure, Patient, GAConfig, Staff
+from models import Agenda, Block, Patient, Procedure, Room, Specialty, Surgeon
+from decoder import build_agenda
 
-# ═══════════════════════════════════════════════════════════════════════
-# 1. CLASE INDIVIDUAL
-# ═══════════════════════════════════════════════════════════════════════
-
-class Individual:
-    def __init__(self, chromosome: np.ndarray):
-        self.chromosome: np.ndarray = chromosome.copy()
-        self.fitness: float = -np.inf
-
-    def copy(self) -> "Individual":
-        ind = Individual(self.chromosome.copy())
-        ind.fitness = self.fitness
-        return ind
-
-    def __repr__(self) -> str:
-        return f"Individual(fitness={self.fitness:.4f})"
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# 2. CLASE GENETIC ALGORITHM
-# ═══════════════════════════════════════════════════════════════════════
 
 class GeneticAlgorithm:
-    DAY_NAMES   = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
-    SHIFT_NAMES = ["Mañana", "Tarde"]
-
     def __init__(
         self,
-        config: GAConfig,
-        operating_rooms: List[OperatingRoom],
+        days: List[str],
+        rooms: List[Room],
         specialties: List[Specialty],
-        patients_by_specialty: Dict[int, List[Patient]],
-        staff_list: List[Staff],
-        procedures_by_specialty: Optional[Dict[int, List[Procedure]]] = None,
+        surgeons: List[Surgeon],
+        procedures: List[Procedure],
+        patients: List[Patient],
+        population_size: int = 50,
+        generations: int = 200,
+        tournament_size: int = 3,
+        crossover_rate: float = 0.8,
+        mutation_rate: float = 0.05,
+        elitism_rate: float = 0.1,
+        stagnation_limit: int = 30,
+        alpha: float = 1.0,
+        beta: float = 0.3,
+        delta: float = 0.1,
+        cleaning_minutes: int = 15,
     ):
-        self.cfg = config
-        self.operating_rooms = operating_rooms  
+        """
+        alpha, beta: ponderaciones de la funcion de aptitud global
+
+        Fitness =
+            alpha*PriorityScore
+          + beta*ORUtilization
+
+        Se espera alpha > beta ya que la prioridad clínica
+        constituye el objetivo principal del sistema.
+
+        cleaning_minutes: ventana de limpieza (en minutos) que el decoder
+            reserva entre el final de una cirugia y el inicio de la
+            siguiente dentro del mismo bloque quirurgico. Se resta de la
+            capacidad disponible del quirofano (no se contabiliza como
+            tiempo ocioso).
+        """
+        self.days = days
+        self.rooms = rooms
         self.specialties = specialties
-        self.patients_by_specialty = patients_by_specialty
-        self.staff_list = staff_list 
+        self.surgeons: Dict[str, Surgeon] = {s.id: s for s in surgeons}
+        self.procedures: Dict[str, Procedure] = {pr.id: pr for pr in procedures}
+        self.patients = patients
 
-        self.n_ors    = len(operating_rooms)
-        self.n_days   = config.n_days
-        self.n_shifts = config.n_shifts
+        # Bloques quirurgicos: B = (d, q) para todo d en D, q en Q
+        self.blocks: List[Block] = [Block(d, r.id) for d in days for r in rooms]
+        self.specialty_ids: List[str] = [s.id for s in specialties]
+        self.min_blocks: Dict[str, int] = {s.id: s.min_blocks for s in specialties}
+        self.rooms_by_id: Dict[str, Room] = {r.id: r for r in rooms}
 
-        self._spec_by_id: Dict[int, Specialty]    = {s.id: s for s in specialties}
-        self._or_by_idx:  Dict[int, OperatingRoom] = dict(enumerate(operating_rooms))
-        self._real_spec_ids: List[int] = [s.id for s in specialties if s.id != 0]
+        self.population_size = population_size
+        self.generations = generations
+        self.tournament_size = tournament_size
+        self.crossover_rate = crossover_rate
+        self.mutation_rate = mutation_rate
+        self.elitism_count = max(1, int(elitism_rate * population_size))
+        self.stagnation_limit = stagnation_limit
 
-        self.best_individual: Optional[Individual] = None
-        self.history: List[float] = []
+        self.alpha = alpha
+        self.beta = beta
+        self.cleaning_minutes = cleaning_minutes
 
-        # Historial de hit del caché de fitness exclusivo del AG
-        self._fitness_cache: Dict[bytes, float] = {}
-        self._fitness_cache_hits: int = 0
-        
-        self.slot_size = config.slot_size_min
-        self.procedures_by_specialty = procedures_by_specialty or {}
-        self._procedure_by_id: Dict[int, Procedure] = {
-            proc.id: proc
-            for procs in self.procedures_by_specialty.values()
-            for proc in procs
+        self.total_available_time = sum(r.daily_capacity_minutes for r in rooms) * len(
+            days
+        )
+
+        self.best_individual: Dict[Block, str] = None
+        self.best_fitness: float = float("-inf")
+        self.history: List[float] = []  # mejor fitness por generacion
+
+    # ------------------------------------------------------------------
+    # 10.4.6.1 Inicializacion de la poblacion
+    # ------------------------------------------------------------------
+    def _random_chromosome(self) -> Dict[Block, str]:
+        return {b: random.choice(self.specialty_ids) for b in self.blocks}
+
+    def _initial_population(self) -> List[Dict[Block, str]]:
+        return [self._random_chromosome() for _ in range(self.population_size)]
+
+    # ------------------------------------------------------------------
+    # 10.4.6.5 Operador de reparacion: AssignedBlocks(e) >= MinBlocks(e)
+    # ------------------------------------------------------------------
+    def _repair(self, chromosome: Dict[Block, str]) -> Dict[Block, str]:
+        chromosome = dict(chromosome)
+        counts = {sid: 0 for sid in self.specialty_ids}
+        for sid in chromosome.values():
+            counts[sid] += 1
+
+        deficit = {
+            sid: max(0, self.min_blocks.get(sid, 0) - counts[sid])
+            for sid in self.specialty_ids
         }
 
-    def _specialty_procedures(self, specialty_id: int) -> List[Procedure]:
-        return self.procedures_by_specialty.get(specialty_id, [])
-
-    def _compatible_procedures_for_room(self, specialty_id: int, or_type: str) -> List[Procedure]:
-        return [
-            proc
-            for proc in self._specialty_procedures(specialty_id)
-            if {"baja_complejidad": 0, "media_complejidad": 1, "alta_complejidad": 2}.get(proc.required_room_type, 0) \
-            <= {"baja_complejidad": 0, "media_complejidad": 1, "alta_complejidad": 2}.get(or_type, 0)
-        ]
-
-    def _specialty_valid_for_or(self, specialty_id: int, or_idx: int, day: int, shift: int) -> bool:
-        if specialty_id == 0:
-            return True
-
-        or_obj = self._or_by_idx[or_idx]
-        if not or_obj.availability[day][shift]:
-            return False
-
-        compatible_procs = self._compatible_procedures_for_room(specialty_id, or_obj.or_type)
-        if not compatible_procs:
-            return False
-
-        is_morning = (shift == 0)
-        compatible_proc_ids = {proc.id for proc in compatible_procs}
-
-        for staff in self.staff_list:
-            if staff.role == "cirujano" and staff.main_specialty_id == specialty_id:
-                has_competence = any(pid in staff.enabled_procedures_ids for pid in compatible_proc_ids)
-                if has_competence and staff.get_available_minutes_in_block(day, is_morning, self.cfg.block_duration_min) > 0:
-                    return True
-        return False
-
-    # ─── 2.1 INICIALIZACIÓN ───────────────────────────────────────────────
-
-    def initialize_population(self) -> List[Individual]:
-        return [self._create_individual() for _ in range(self.cfg.population_size)]
-
-    def _create_individual(self) -> Individual:
-        chrom = np.zeros((self.n_days, self.n_shifts, self.n_ors), dtype=int)
-        for d in range(self.n_days):
-            for t in range(self.n_shifts):
-                for q in range(self.n_ors):
-                    chrom[d, t, q] = self._random_specialty_for(q, d, t)
-        return Individual(chrom)
-
-    def _random_specialty_for(self, or_idx: int, day: int, shift: int) -> int:
-        options = self._valid_specialties_for(or_idx, day, shift)
-        if not options or random.random() < 0.15:
-            return 0
-        return random.choice(options)
-
-    def _valid_specialties_for(self, or_idx: int, day: int, shift: int) -> List[int]:
-        or_obj = self._or_by_idx[or_idx]
-        if not or_obj.availability[day][shift]:
-            return [0]
-
-        valid = [0]
-        for specialty in self.specialties:
-            if self._specialty_valid_for_or(specialty.id, or_idx, day, shift):
-                valid.append(specialty.id)
-        return valid
-
-    # ─── 2.2 CONSTRUCCIÓN DE BLOQUES POR TURNO (Para uso del cierre) ──────
-
-    def _build_shift_blocks(
-        self,
-        chrom: np.ndarray,
-        d: int,
-        t: int,
-        is_morning: bool,
-        pacientes_excluidos: set
-    ) -> List[Dict]:
-        blocks = []
-        for q in range(self.n_ors):
-            spec_id = int(chrom[d, t, q])
-            or_     = self._or_by_idx[q]
-
-            if not or_.availability[d][t] or spec_id == 0:
-                blocks.append({"or_idx": q, "spec_id": 0, "patients": [], "surgeons": [], "t_max": 0})
+        for sid, need in deficit.items():
+            if need <= 0:
                 continue
-
-            compatible_procs = self._compatible_procedures_for_room(spec_id, or_.or_type)
-            compatible_proc_ids = {proc.id for proc in compatible_procs}
-            if not compatible_proc_ids:
-                blocks.append({"or_idx": q, "spec_id": spec_id, "patients": [], "surgeons": [], "t_max": 0})
-                continue
-
-            surgeons = [
-                s for s in self.staff_list
-                if s.role == "cirujano"
-                and s.main_specialty_id == spec_id
-                and any(pid in s.enabled_procedures_ids for pid in compatible_proc_ids)
-                and s.get_available_minutes_in_block(d, is_morning, self.cfg.block_duration_min) > 0
+            # Bloques candidatos a donar: especialidades con superavit sobre su minimo
+            donors = [
+                b
+                for b, s in chromosome.items()
+                if counts[s] > self.min_blocks.get(s, 0)
             ]
-            if not surgeons:
-                blocks.append({"or_idx": q, "spec_id": spec_id, "patients": [], "surgeons": [], "t_max": 0})
-                continue
+            random.shuffle(donors)
+            for b in donors:
+                if need <= 0:
+                    break
+                old_sid = chromosome[b]
+                chromosome[b] = sid
+                counts[old_sid] -= 1
+                counts[sid] += 1
+                need -= 1
+        return chromosome
 
-            procedimientos_viables_hoy = set()
-            for s in surgeons:
-                procedimientos_viables_hoy.update(set(s.enabled_procedures_ids) & compatible_proc_ids)
+    # ------------------------------------------------------------------
+    # 10.4.5 Funcion de aptitud global
+    # ------------------------------------------------------------------
+    def _evaluate(self, chromosome: Dict[Block, str]) -> Tuple[float, Agenda]:
 
-            surgeons_ids = {s.id for s in surgeons}
-            patients = [
-                p for p in self.patients_by_specialty.get(spec_id, [])
-                if p.id not in pacientes_excluidos
-                and getattr(p, "procedure_id", None) in procedimientos_viables_hoy
-                and (getattr(p, "forced_surgeon_id", None) is None or p.forced_surgeon_id in surgeons_ids)
-            ]
+        agenda = build_agenda(
+            chromosome, self.patients, self.procedures, self.surgeons, self.rooms_by_id,
+            cleaning_minutes=self.cleaning_minutes
+        )
 
-            blocks.append({
-                "or_idx"  : q,
-                "spec_id" : spec_id,
-                "patients": patients,
-                "surgeons": surgeons,
-                "t_max"   : self.cfg.block_duration_min,
-            })
-        return blocks
+        surgeries = agenda.all_surgeries()
+        patients_by_id = {p.id: p for p in self.patients}
 
-    # ─── 2.3 EVALUACIÓN DE FITNESS HEURÍSTICO (Mili-segundos) ─────────────
+        # PriorityScore
+        priority_score = sum(
+            patients_by_id[s.patient_id].clinical_priority for s in surgeries
+        )
 
-    @staticmethod
-    def _chromosome_key(chrom: np.ndarray) -> bytes:
-        return chrom.tobytes()
+        # ORUtilization
+        used_time = sum(agenda.used_time.values())
 
-    def evaluate_fitness(self, individual: Individual) -> float:
-        """
-        Calcula de forma determinística una puntuación de utilidad estimada
-        reemplazando el uso del Solver matemático. Ordena por prioridad clínica (Greedy).
-        """
-        chrom = individual.chromosome
-        chrom_key = self._chromosome_key(chrom)
-        
-        cached_f = self._fitness_cache.get(chrom_key)
-        if cached_f is not None:
-            self._fitness_cache_hits += 1
-            individual.fitness = cached_f
-            return cached_f
+        or_utilization = (
+            used_time / self.total_available_time
+            if self.total_available_time > 0
+            else 0.0
+        )
 
-        total_score = 0.0
-        pacientes_atendidos_estimados = set()
+        fitness = self.alpha * priority_score + self.beta * or_utilization
 
-        for d in range(self.n_days):
-            for t in range(self.n_shifts):
-                is_morning = (t == 0)
-                
-                for q in range(self.n_ors):
-                    spec_id = int(chrom[d, t, q])
-                    or_ = self._or_by_idx[q]
+        return fitness, agenda
 
-                    if not or_.availability[d][t] or spec_id == 0:
-                        continue
+    # ------------------------------------------------------------------
+    # 10.4.6.2 Seleccion por torneo
+    # ------------------------------------------------------------------
+    def _tournament_selection(
+        self, population: List[Dict[Block, str]], fitnesses: List[float]
+    ) -> Dict[Block, str]:
+        contenders = random.sample(range(len(population)), self.tournament_size)
+        best_idx = max(contenders, key=lambda i: fitnesses[i])
+        return population[best_idx]
 
-                    # 1. Compatibilidad de Complejidad de Quirófano
-                    compatible_procs = self._compatible_procedures_for_room(spec_id, or_.or_type)
-                    if not compatible_procs:
-                        continue
-                    compatible_proc_ids = {proc.id for proc in compatible_procs}
+    # ------------------------------------------------------------------
+    # 10.4.6.3 Operador de cruza (un punto de corte)
+    # ------------------------------------------------------------------
+    def _crossover(
+        self, parent1: Dict[Block, str], parent2: Dict[Block, str]
+    ) -> Tuple[Dict[Block, str], Dict[Block, str]]:
+        if random.random() > self.crossover_rate:
+            return dict(parent1), dict(parent2)
 
-                    # 2. Plantel médico disponible en este turno
-                    surgeons_hoy = [
-                        s for s in self.staff_list
-                        if s.role == "cirujano"
-                        and s.main_specialty_id == spec_id
-                        and s.get_available_minutes_in_block(d, is_morning, self.cfg.block_duration_min) > 0
-                    ]
-                    if not surgeons_hoy:
-                        continue
-
-                    # Minutos máximos que puede ofrecer el conjunto de cirujanos hoy
-                    minutos_disponibles_medicos = sum(
-                        s.get_available_minutes_in_block(d, is_morning, self.cfg.block_duration_min)
-                        for s in surgeons_hoy
-                    )
-                    
-                    capacidad_bloque_min = min(self.cfg.block_duration_min, minutos_disponibles_medicos)
-
-                    # Intersección real de lo que saben operar HOY los médicos en esta sala
-                    proc_habilitados_hoy = set()
-                    for s in surgeons_hoy:
-                        proc_habilitados_hoy.update(set(s.enabled_procedures_ids) & compatible_proc_ids)
-
-                    surgeons_ids = {s.id for s in surgeons_hoy}
-
-                    # 3. Simulación codiciosa del llenado de lista de espera
-                    cand_patients = [
-                        p for p in self.patients_by_specialty.get(spec_id, [])
-                        if p.id not in pacientes_atendidos_estimados
-                        and getattr(p, "procedure_id", None) in proc_habilitados_hoy
-                        and (getattr(p, "forced_surgeon_id", None) is None or p.forced_surgeon_id in surgeons_ids)
-                    ]
-                    
-                    # El núcleo de la heurística: priorizar los de mayor urgencia clínica
-                    cand_patients.sort(key=lambda x: x.clinical_priority, reverse=True)
-
-                    tiempo_utilizado = 0
-                    score_bloque = 0.0
-                    
-                    for p in cand_patients:
-                        if tiempo_utilizado + p.estimated_duration <= capacidad_bloque_min:
-                            tiempo_utilizado += p.estimated_duration
-                            
-                            # Función de peso correlacionada al MILP (Prioridad + Incentivo de uso)
-                            score_bloque += (self.cfg.alpha * p.clinical_priority) + \
-                                            (self.cfg.beta * (p.estimated_duration / self.cfg.block_duration_min))
-                            pacientes_atendidos_estimados.add(p.id)
-
-                    # Premio extra si la utilización teórica supera la meta de eficiencia (80%)
-                    if tiempo_utilizado / self.cfg.block_duration_min > 0.80:
-                        score_bloque += 15.0
-
-                    total_score += score_bloque
-
-        # Restar penalizaciones globales por cuotas incumplidas
-        fitness = total_score - self._global_penalty(chrom)
-        individual.fitness = fitness
-        self._fitness_cache[chrom_key] = fitness
-        return fitness
-
-    # ─── 2.4 OPERADORES GENÉTICOS ─────────────────────────────────────────
-
-    def tournament_selection(self, population: List[Individual]) -> Individual:
-        contestants = random.sample(population, self.cfg.tournament_size)
-        return max(contestants, key=lambda ind: ind.fitness).copy()
-
-    def crossover(self, parent1: Individual, parent2: Individual) -> Tuple[Individual, Individual]:
-        if random.random() > self.cfg.crossover_rate:
-            return parent1.copy(), parent2.copy()
-            
-        c1, c2 = parent1.chromosome.copy(), parent2.chromosome.copy()
-        cut = random.randint(1, self.n_days - 1)
-        child1 = np.concatenate([c1[:cut],  c2[cut:]], axis=0)
-        child2 = np.concatenate([c2[:cut],  c1[cut:]], axis=0)
-        return Individual(child1), Individual(child2)
-        
-    def mutate(self, individual: Individual) -> Individual:
-        chrom = individual.chromosome.copy()
-        for d in range(self.n_days):
-            for t in range(self.n_shifts):
-                for q in range(self.n_ors):
-                    if random.random() < self.cfg.mutation_rate:
-                        if random.random() < 0.5:
-                            chrom[d, t, q] = self._random_specialty_for(q, d, t)
-                        else:
-                            d2, t2, q2 = random.randrange(self.n_days), random.randrange(self.n_shifts), random.randrange(self.n_ors)
-                            comp1 = self._specialty_valid_for_or(int(chrom[d, t, q]), q2, d2, t2)
-                            comp2 = self._specialty_valid_for_or(int(chrom[d2, t2, q2]), q, d, t)
-                            if comp1 and comp2:
-                                chrom[d, t, q], chrom[d2, t2, q2] = int(chrom[d2, t2, q2]), int(chrom[d, t, q])
-        return Individual(chrom)
-
-    def _count_blocks_per_specialty(self, chrom: np.ndarray) -> Dict[int, int]:
-        return {sid: int(np.sum(chrom == sid)) for sid in self._real_spec_ids}
-
-    def _evaluate_population(self, population: List[Individual]) -> None:
-        if self.cfg.parallel_workers <= 1 or len(population) <= 1:
-            for individual in population:
-                self.evaluate_fitness(individual)
-            return
-        with ThreadPoolExecutor(max_workers=self.cfg.parallel_workers) as executor:
-            list(executor.map(self.evaluate_fitness, population))
-
-    def _global_penalty(self, chrom: np.ndarray) -> float:
-        penalty = 0.0
-        counts  = self._count_blocks_per_specialty(chrom)
-        for spec in self.specialties:
-            if spec.id == 0:
-                continue
-            assigned = counts.get(spec.id, 0)
-            if assigned < spec.min_blocks:
-                penalty += self.cfg.penalty_below_min_quota * (spec.min_blocks - assigned)
-            if assigned > spec.max_blocks:
-                penalty += self.cfg.penalty_above_max_quota * (assigned - spec.max_blocks)
-        return penalty
-
-    # ─── 2.5 LOOP PRINCIPAL ───────────────────────────────────────────────
-    def run(self) -> List[Individual]:
-        """
-        Ejecuta el AG y retorna una lista (Top K) de mejores individuos únicos.
-        """
-        self.history = []
-        print("▶  Inicializando población...")
-        population = self.initialize_population()
-        self._evaluate_population(population)
-
-        population.sort(key=lambda x: x.fitness, reverse=True)
-        self.best_individual = population[0].copy()
-        generations_no_improve = 0
-
-        print(f"\n{'Gen':>5}  {'Mejor fitness':>16}  {'Promedio':>10}  {'Sin mejora':>10}")
-        print("─" * 50)
-
-        for gen in range(self.cfg.max_generations):
-            new_population = [population[i].copy() for i in range(self.cfg.elite_count)]
-
-            while len(new_population) < self.cfg.population_size:
-                p1 = self.tournament_selection(population)
-                p2 = self.tournament_selection(population)
-                c1, c2 = self.crossover(p1, p2)
-
-                children = [self.mutate(child) for child in (c1, c2)]
-                
-                for child in children:
-                    self.evaluate_fitness(child)
-                    if len(new_population) < self.cfg.population_size:
-                        new_population.append(child)
-
-            population = sorted(new_population, key=lambda x: x.fitness, reverse=True)
-            self.history.append(population[0].fitness)
-
-            if population[0].fitness > self.best_individual.fitness:
-                self.best_individual = population[0].copy()
-                generations_no_improve = 0
+        cut = random.randint(1, len(self.blocks) - 1)
+        child1, child2 = {}, {}
+        for i, b in enumerate(self.blocks):
+            if i < cut:
+                child1[b] = parent1[b]
+                child2[b] = parent2[b]
             else:
-                generations_no_improve += 1
+                child1[b] = parent2[b]
+                child2[b] = parent1[b]
+        return child1, child2
 
-            if gen % 10 == 0:
-                avg = sum(ind.fitness for ind in population) / len(population)
-                print(f"{gen:>5}  {self.best_individual.fitness:>16.4f}  {avg:>10.4f}  {generations_no_improve:>10}")
+    # ------------------------------------------------------------------
+    # 10.4.6.4 Operador de mutacion
+    # ------------------------------------------------------------------
+    def _mutate(self, chromosome: Dict[Block, str]) -> Dict[Block, str]:
+        chromosome = dict(chromosome)
+        for b in self.blocks:
+            if random.random() < self.mutation_rate:
+                chromosome[b] = random.choice(self.specialty_ids)
+        return chromosome
 
-            if generations_no_improve >= self.cfg.convergence_patience:
-                print(f"\n✔ Convergencia en gen {gen}.")
+    # ------------------------------------------------------------------
+    # Ciclo evolutivo principal (con elitismo y criterio de parada doble)
+    # ------------------------------------------------------------------
+    def run(self) -> Tuple[Dict[Block, str], float, Agenda]:
+        population = [self._repair(c) for c in self._initial_population()]
+        evaluations = [self._evaluate(c) for c in population]
+        fitnesses = [e[0] for e in evaluations]
+
+        best_fitness = max(fitnesses)
+        best_idx = fitnesses.index(best_fitness)
+        best_individual = population[best_idx]
+        best_agenda = evaluations[best_idx][1]
+        stagnation = 0
+
+        for generation in range(self.generations):
+            # 10.4.6.6 Elitismo: los mejores pasan sin modificacion
+            ranked = sorted(
+                range(len(population)), key=lambda i: fitnesses[i], reverse=True
+            )
+            new_population = [
+                copy.deepcopy(population[i]) for i in ranked[: self.elitism_count]
+            ]
+
+            while len(new_population) < self.population_size:
+                parent1 = self._tournament_selection(population, fitnesses)
+                parent2 = self._tournament_selection(population, fitnesses)
+                child1, child2 = self._crossover(parent1, parent2)
+                child1 = self._repair(self._mutate(child1))
+                child2 = self._repair(self._mutate(child2))
+                new_population.append(child1)
+                if len(new_population) < self.population_size:
+                    new_population.append(child2)
+
+            population = new_population
+            evaluations = [self._evaluate(c) for c in population]
+            fitnesses = [e[0] for e in evaluations]
+
+            gen_best_fitness = max(fitnesses)
+            gen_best_idx = fitnesses.index(gen_best_fitness)
+            self.history.append(gen_best_fitness)
+
+            # 10.4.6.7 Criterio de parada: mejora vs estancamiento
+            if gen_best_fitness > best_fitness + 1e-6:
+                best_fitness = gen_best_fitness
+                best_individual = population[gen_best_idx]
+                best_agenda = evaluations[gen_best_idx][1]
+                stagnation = 0
+            else:
+                stagnation += 1
+
+            if stagnation >= self.stagnation_limit:
+                print(f"Convergencia alcanzada en la generacion {generation + 1}.")
                 break
 
-        total_fitness_calls = self._fitness_cache_hits + len(self._fitness_cache)
-        print(f"  Cache fitness: {self._fitness_cache_hits} hits / {total_fitness_calls} evaluaciones "
-              f"({100 * self._fitness_cache_hits // max(total_fitness_calls, 1)}% ahorrado)")
-        
-        # ═══ MODIFICACIÓN EXTRAER TOP K UNICOS ═══
-        poblacion_final_ordenada = sorted(population, key=lambda x: x.fitness, reverse=True)
-        mejores_unicos = []
-        vistos = set()
-        
-        for ind in poblacion_final_ordenada:
-            key = self._chromosome_key(ind.chromosome)
-            if key not in vistos:
-                vistos.add(key)
-                mejores_unicos.append(ind.copy())
-            if len(mejores_unicos) >= 5:  # Extrae las mejores 5 alternativas viables únicas
-                break
-                
-        return mejores_unicos
-
-    def print_schedule(self, individual: Individual) -> None:
-        spec_names = {s.id: s.name for s in self.specialties}
-        spec_names[0] = "─── Libre ───"
-        print("\n" + "═" * 70)
-        print(f"  AGENDA SEMANAL  │  Fitness Heurístico: {individual.fitness:.4f}")
-        print("═" * 70)
-        for d in range(self.n_days):
-            print(f"\n  {self.DAY_NAMES[d]}")
-            for t in range(self.n_shifts):
-                print(f"    {self.SHIFT_NAMES[t]}:")
-                for q in range(self.n_ors):
-                    sid = int(individual.chromosome[d, t, q])
-                    print(f"      {self._or_by_idx[q].name:25s} → {spec_names.get(sid, 'ID='+str(sid))}")
+        self.best_individual = best_individual
+        self.best_fitness = best_fitness
+        return best_individual, best_fitness, best_agenda
