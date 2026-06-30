@@ -1,0 +1,21 @@
+id,name,specialty_id,required_room_type,estimated_duration
+PR1,Reduccion de fractura,TRA,1,60
+PR2,Protesis de cadera,TRA,2,150
+PR3,Artroscopia de rodilla,TRA,1,90
+PR4,Osteosintesis de tobillo,TRA,1,75
+PR5,Apendicectomia,CG,1,60
+PR6,Colecistectomia,CG,2,100
+PR7,Hernioplastia,CG,1,70
+PR8,Resección intestinal,CG,2,180
+PR9,Resectoscopia,URO,1,60
+PR10,Nefrectomia,URO,3,180
+PR11,Prostatectomia,URO,2,150
+PR12,Craneotomia,NEU,3,240
+PR13,Laminectomia,NEU,2,150
+PR14,Drenaje de hematoma subdural,NEU,3,120
+PR15,Histerectomia,GIN,2,120
+PR16,Cesarea,GIN,1,60
+PR17,Laparoscopia ginecologica,GIN,2,90
+PR18,Cirugia de cataratas,OFT,1,45
+PR19,Vitrectomia,OFT,2,90
+PR20,Cirugia de estrabismo,OFT,1,60
