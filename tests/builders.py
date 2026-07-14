@@ -53,9 +53,9 @@ def deterministic_end_to_end_scenario():
     # y penalizaciones bien altas para obligar al AG a respetar
     # exactamente la cantidad de bloques que le pedimos a cada especialidad.
     config = GAConfig(
-        population_size=6,
-        max_generations=5,
-        convergence_patience=2,
+        population_size=30,
+        max_generations=30,
+        convergence_patience=10,
         mutation_rate=0.10,
         crossover_rate=0.85,
         tournament_size=2,
