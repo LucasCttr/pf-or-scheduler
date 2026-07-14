@@ -130,10 +130,20 @@ def _minimal_payload():
                 "name": "Dr Alta",
                 "role": "cirujano",
                 "enabled_procedures_ids": [101],
+                "main_specialty_id": 1,
                 "availability_hours": {"0": [480, 720]},
             }
         ],
-        "procedures_by_specialty": {"1": [101]},
+        "procedures_by_specialty": {
+            "1": [
+                {
+                    "id": 101,
+                    "name": "Procedimiento alta",
+                    "specialty_id": 1,
+                    "required_room_type": "alta_complejidad",
+                }
+            ]
+        },
         "config": {
             "population_size": 2,
             "max_generations": 1,

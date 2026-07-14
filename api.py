@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from genetic_algorithm import GeneticAlgorithm
 from main import default_config, reconstruct_agenda
-from models import GAConfig, OperatingRoom, Patient, Specialty, Staff
+from models import GAConfig, OperatingRoom, Patient, Procedure, Specialty, Staff
 
 JobStatus = Literal["planning", "completed", "failed"]
 
@@ -46,12 +46,20 @@ class SpecialtyPayload(BaseModel):
     max_blocks: int = 10
 
 
+class ProcedurePayload(BaseModel):
+    id: int
+    name: str
+    specialty_id: int
+    required_room_type: str
+
+
 class MedicalStaffPayload(BaseModel):
     id: int
     name: str
     role: str
     enabled_procedures_ids: list[int] = Field(default_factory=list)
     availability_hours: dict[str, list[int]] = Field(default_factory=dict)
+    main_specialty_id: int = 0
 
 
 class SchedulerConfigPayload(BaseModel):
@@ -79,7 +87,7 @@ class PlanningRequest(BaseModel):
     operating_rooms: list[OperatingRoomPayload]
     specialties: list[SpecialtyPayload]
     medical_staff: list[MedicalStaffPayload]
-    procedures_by_specialty: dict[str, list[int]] = Field(default_factory=dict)
+    procedures_by_specialty: dict[str, list[ProcedurePayload]] = Field(default_factory=dict)
     config: SchedulerConfigPayload | None = None
     id_maps: dict[str, Any] | None = None
 
@@ -193,9 +201,22 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
             role=item.role,
             enabled_procedures_ids=item.enabled_procedures_ids,
             availability_hours={int(day): tuple(hours) for day, hours in item.availability_hours.items()},
+            main_specialty_id=item.main_specialty_id,
         )
         for item in payload.medical_staff
     ]
+    procedures_by_specialty = {
+        int(specialty_id): [
+            Procedure(
+                id=procedure.id,
+                name=procedure.name,
+                specialty_id=procedure.specialty_id,
+                required_room_type=procedure.required_room_type,
+            )
+            for procedure in procedures
+        ]
+        for specialty_id, procedures in payload.procedures_by_specialty.items()
+    }
 
     patients_by_specialty: dict[int, list[Patient]] = {}
     for item in payload.pending_surgeries:
@@ -211,12 +232,14 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
             )
         )
 
-    ga = GeneticAlgorithm(config, operating_rooms, specialties, patients_by_specialty, staff_list)
-    if payload.procedures_by_specialty:
-        ga.procedures_by_specialty = {
-            int(specialty_id): procedure_ids
-            for specialty_id, procedure_ids in payload.procedures_by_specialty.items()
-        }
+    ga = GeneticAlgorithm(
+        config,
+        operating_rooms,
+        specialties,
+        patients_by_specialty,
+        staff_list,
+        procedures_by_specialty=procedures_by_specialty,
+    )
 
     best = ga.run()
     agenda, _ = reconstruct_agenda(

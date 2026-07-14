@@ -24,6 +24,7 @@ def _run_scenario(seed):
         specialties=scenario["specialties"],
         patients_by_specialty=scenario["patients_by_specialty"],
         staff_list=scenario["staff_list"],
+        procedures_by_specialty=scenario["procedures_by_specialty"],
     )
 
     best = ga.run()

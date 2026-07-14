@@ -7,7 +7,7 @@ project_root = str(Path(__file__).resolve().parents[1])
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from models import GAConfig, OperatingRoom, Patient, Specialty, Staff
+from models import GAConfig, OperatingRoom, Patient, Procedure, Specialty, Staff
 
 FREE_SPECIALTY_ID = 0
 
@@ -20,6 +20,9 @@ GENERAL_SPECIALTY_ID = 2
 DR_ALTA_ID = 1
 DR_MEDIA_ID = 2
 
+TRAUMA_PROCEDURE_ID = 1001
+GENERAL_PROCEDURE_ID = 2001
+
 TRAUMA_PATIENT_1_ID = 101
 TRAUMA_PATIENT_2_ID = 102
 TRAUMA_PATIENT_3_ID = 103
@@ -31,10 +34,11 @@ GENERAL_PATIENT_3_ID = 203
 GENERAL_PATIENT_4_ID = 204
 
 
-def make_patient(patient_id, specialty_id, duration, priority, forced_surgeon_id=None):
+def make_patient(patient_id, specialty_id, procedure_id, duration, priority, forced_surgeon_id=None):
     return Patient(
         id=patient_id,
         specialty_id=specialty_id,
+        procedure_id=procedure_id,
         estimated_duration=duration,
         clinical_priority=priority,
         required_roles=["cirujano"],
@@ -98,6 +102,24 @@ def deterministic_end_to_end_scenario():
         Specialty(id=TRAUMA_SPECIALTY_ID, name="Trauma", compatible_or_types=["alta_complejidad"], min_blocks=2, max_blocks=2),
         Specialty(id=GENERAL_SPECIALTY_ID, name="General", compatible_or_types=["media_complejidad"], min_blocks=2, max_blocks=2),
     ]
+    procedures_by_specialty = {
+        TRAUMA_SPECIALTY_ID: [
+            Procedure(
+                id=TRAUMA_PROCEDURE_ID,
+                name="Trauma alta",
+                specialty_id=TRAUMA_SPECIALTY_ID,
+                required_room_type="alta_complejidad",
+            )
+        ],
+        GENERAL_SPECIALTY_ID: [
+            Procedure(
+                id=GENERAL_PROCEDURE_ID,
+                name="General media",
+                specialty_id=GENERAL_SPECIALTY_ID,
+                required_room_type="media_complejidad",
+            )
+        ],
+    }
 
     # Cada paciente dura 120 minutos y cada bloque tiene 240, así que por día entran 2.
     # Como por especialidad cargamos 4 pacientes, los otros 2 quedan para el bloque del día siguiente.
@@ -106,16 +128,16 @@ def deterministic_end_to_end_scenario():
     # Así el test también verifica que elija primero a los pacientes más prioritarios.
     patients_by_specialty = {
         TRAUMA_SPECIALTY_ID: [
-            make_patient(patient_id=TRAUMA_PATIENT_1_ID, specialty_id=TRAUMA_SPECIALTY_ID, duration=120, priority=10.0),
-            make_patient(patient_id=TRAUMA_PATIENT_2_ID, specialty_id=TRAUMA_SPECIALTY_ID, duration=120, priority=9.0),
-            make_patient(patient_id=TRAUMA_PATIENT_3_ID, specialty_id=TRAUMA_SPECIALTY_ID, duration=120, priority=8.0),
-            make_patient(patient_id=TRAUMA_PATIENT_4_ID, specialty_id=TRAUMA_SPECIALTY_ID, duration=120, priority=7.0),
+            make_patient(patient_id=TRAUMA_PATIENT_1_ID, specialty_id=TRAUMA_SPECIALTY_ID, procedure_id=TRAUMA_PROCEDURE_ID, duration=120, priority=10.0),
+            make_patient(patient_id=TRAUMA_PATIENT_2_ID, specialty_id=TRAUMA_SPECIALTY_ID, procedure_id=TRAUMA_PROCEDURE_ID, duration=120, priority=9.0),
+            make_patient(patient_id=TRAUMA_PATIENT_3_ID, specialty_id=TRAUMA_SPECIALTY_ID, procedure_id=TRAUMA_PROCEDURE_ID, duration=120, priority=8.0),
+            make_patient(patient_id=TRAUMA_PATIENT_4_ID, specialty_id=TRAUMA_SPECIALTY_ID, procedure_id=TRAUMA_PROCEDURE_ID, duration=120, priority=7.0),
         ],
         GENERAL_SPECIALTY_ID: [
-            make_patient(patient_id=GENERAL_PATIENT_1_ID, specialty_id=GENERAL_SPECIALTY_ID, duration=120, priority=10.0),
-            make_patient(patient_id=GENERAL_PATIENT_2_ID, specialty_id=GENERAL_SPECIALTY_ID, duration=120, priority=9.0),
-            make_patient(patient_id=GENERAL_PATIENT_3_ID, specialty_id=GENERAL_SPECIALTY_ID, duration=120, priority=8.0),
-            make_patient(patient_id=GENERAL_PATIENT_4_ID, specialty_id=GENERAL_SPECIALTY_ID, duration=120, priority=7.0),
+            make_patient(patient_id=GENERAL_PATIENT_1_ID, specialty_id=GENERAL_SPECIALTY_ID, procedure_id=GENERAL_PROCEDURE_ID, duration=120, priority=10.0),
+            make_patient(patient_id=GENERAL_PATIENT_2_ID, specialty_id=GENERAL_SPECIALTY_ID, procedure_id=GENERAL_PROCEDURE_ID, duration=120, priority=9.0),
+            make_patient(patient_id=GENERAL_PATIENT_3_ID, specialty_id=GENERAL_SPECIALTY_ID, procedure_id=GENERAL_PROCEDURE_ID, duration=120, priority=8.0),
+            make_patient(patient_id=GENERAL_PATIENT_4_ID, specialty_id=GENERAL_SPECIALTY_ID, procedure_id=GENERAL_PROCEDURE_ID, duration=120, priority=7.0),
         ],
     }
 
@@ -128,14 +150,16 @@ def deterministic_end_to_end_scenario():
             id=DR_ALTA_ID,
             name="Dr Alta",
             role="cirujano",
-            specialties_ids=[TRAUMA_SPECIALTY_ID],
+            enabled_procedures_ids=[TRAUMA_PROCEDURE_ID],
+            main_specialty_id=TRAUMA_SPECIALTY_ID,
             availability_hours={0: (480, 720), 1: (480, 720)},
         ),
         Staff(
             id=DR_MEDIA_ID,
             name="Dr Media",
             role="cirujano",
-            specialties_ids=[GENERAL_SPECIALTY_ID],
+            enabled_procedures_ids=[GENERAL_PROCEDURE_ID],
+            main_specialty_id=GENERAL_SPECIALTY_ID,
             availability_hours={0: (480, 720), 1: (480, 720)},
         ),
     ]
@@ -171,6 +195,7 @@ def deterministic_end_to_end_scenario():
         "config": config,
         "operating_rooms": operating_rooms,
         "specialties": specialties,
+        "procedures_by_specialty": procedures_by_specialty,
         "patients_by_specialty": patients_by_specialty,
         "staff_list": staff_list,
         "expected_chromosome": expected_chromosome,
