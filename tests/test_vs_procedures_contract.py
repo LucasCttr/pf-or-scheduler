@@ -19,11 +19,11 @@ def _ga_for_contract(*, room_type="media_complejidad", staff_main_specialty=1):
         name="Dr Competente",
         role="cirujano",
         enabled_procedures_ids=[101],
-        availability_hours={0: (480, 1200)},
+        availability_hours={0: (480, 780)},
         main_specialty_id=staff_main_specialty,
     )
     return GeneticAlgorithm(
-        config=GAConfig(n_days=1, n_shifts=1, block_duration_min=720),
+        config=GAConfig(n_days=1, n_shifts=1, block_duration_min=300),
         operating_rooms=[
             OperatingRoom(id=1, name="OR", or_type=room_type, availability=[[True]]),
         ],

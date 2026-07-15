@@ -60,7 +60,7 @@ def solve_mip_for_shift(
                 continue
             
             # CAMBIO CRÍTICO: Le pasamos _active_t_max a models.py para que calcule el rango 
-            # basándose en las 12 horas reales (720 min) y no herede el default viejo de 4 horas (240 min).
+            # basándose en la duración configurada del bloque y no herede el default viejo de 4 horas (240 min).
             s_start, s_end = s.get_range_for_block(day_idx, is_morning, block_duration_min=_active_t_max)
             
             if s_start == s_end == 0:
