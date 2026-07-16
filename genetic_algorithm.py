@@ -80,6 +80,11 @@ class GeneticAlgorithm:
             days
         )
 
+        # Valor maximo posible de clinical_priority, usado para normalizar el
+        # priority_score entre 0 y 1
+        self.priority_max = max((p.clinical_priority for p in patients), default=1)
+
+
         self.best_individual: Dict[Block, str] = None
         self.best_fitness: float = float("-inf")
         self.history: List[float] = []  # mejor fitness por generacion
@@ -139,10 +144,15 @@ class GeneticAlgorithm:
         surgeries = agenda.all_surgeries()
         patients_by_id = {p.id: p for p in self.patients}
 
-        # PriorityScore
-        priority_score = sum(
-            patients_by_id[s.patient_id].clinical_priority for s in surgeries
-        )
+        # PriorityScore normalizado: promedio de prioridad clinica de los
+        # pacientes programados, escalado a [0, 1] por priority_max
+        if surgeries:
+            avg_priority = sum(
+                patients_by_id[s.patient_id].clinical_priority for s in surgeries
+            ) / len(surgeries)
+            priority_score = avg_priority / self.priority_max
+        else:
+            priority_score = 0.0
 
         # ORUtilization
         used_time = sum(agenda.used_time.values())

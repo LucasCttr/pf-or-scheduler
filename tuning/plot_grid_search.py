@@ -1,7 +1,7 @@
 """
 plot_grid_search.py
 
-Genera 3 graficos independientes a partir de grid_search_results.csv
+Genera 4 graficos independientes a partir de grid_search_results.csv
 para analizar el tuning de hiperparametros del AG.
 
 Uso:
@@ -20,6 +20,7 @@ CSV_PATH = sys.argv[1] if len(sys.argv) > 1 else "grid_search_results.csv"
 OUTPUT_TOP_CONFIGS = "grid_search_top_configs.png"
 OUTPUT_QUALITY_VS_STABILITY = "grid_search_quality_vs_stability.png"
 OUTPUT_CONVERGENCE = "grid_search_convergence.png"
+OUTPUT_CONVERGENCE_PER_CONFIG = "grid_search_convergence_per_config.png"
 
 # ------------------------------------------------------------------
 # Estilo general (sobrio, legible, sin depender de seaborn)
@@ -38,6 +39,8 @@ plt.rcParams.update({
 COLOR_MAIN = "#2c6e91"
 COLOR_ACCENT = "#d9534f"
 COLOR_BEST = "#2e8b57"
+COLOR_FAST = "#2e8b57"
+COLOR_SLOW = "#d9534f"
 
 
 def main():
@@ -127,7 +130,48 @@ def main():
     plt.close(fig3)
     print(f"Grafico guardado en: {OUTPUT_CONVERGENCE}")
 
-    # Resumen en texto de la mejor config
+    # ----------------------------------------------------------------
+    # Figura 4: generaciones hasta convergencia, por CONFIGURACION
+    # individual (todas las combinaciones, no agrupadas), ordenadas
+    # de mas rapida a mas lenta. Util cuando el fitness final es
+    # practicamente el mismo entre configs y la diferencia real esta
+    # en cuanto tardan en llegar ahi.
+    # ----------------------------------------------------------------
+    df_conv = df.sort_values("avg_generations_used", ascending=True).reset_index(drop=True)
+    n_conv = len(df_conv)
+    fastest_idx = 0
+    slowest_idx = n_conv - 1
+
+    colors_conv = [COLOR_MAIN] * n_conv
+    colors_conv[fastest_idx] = COLOR_FAST
+    colors_conv[slowest_idx] = COLOR_SLOW
+
+    fig4, ax4 = plt.subplots(figsize=(max(11, n_conv * 0.45), 6))
+    ax4.bar(
+        range(n_conv), df_conv["avg_generations_used"],
+        color=colors_conv, edgecolor="white", linewidth=0.5,
+    )
+    ax4.set_xticks(range(n_conv))
+    ax4.set_xticklabels(df_conv["config_label"], rotation=45, ha="right", fontsize=7)
+    ax4.set_ylabel("Generaciones promedio hasta convergencia")
+    ax4.set_title("Velocidad de convergencia por configuracion "
+                   "(ordenado de mas rapida a mas lenta)")
+    ax4.annotate(
+        "mas rapida", xy=(fastest_idx, df_conv["avg_generations_used"].iloc[fastest_idx]),
+        xytext=(fastest_idx, df_conv["avg_generations_used"].iloc[fastest_idx] + 8),
+        ha="center", fontsize=8, color=COLOR_FAST, fontweight="bold",
+    )
+    ax4.annotate(
+        "mas lenta", xy=(slowest_idx, df_conv["avg_generations_used"].iloc[slowest_idx]),
+        xytext=(slowest_idx, df_conv["avg_generations_used"].iloc[slowest_idx] + 8),
+        ha="center", fontsize=8, color=COLOR_SLOW, fontweight="bold",
+    )
+    fig4.tight_layout()
+    fig4.savefig(OUTPUT_CONVERGENCE_PER_CONFIG, dpi=160, bbox_inches="tight")
+    plt.close(fig4)
+    print(f"Grafico guardado en: {OUTPUT_CONVERGENCE_PER_CONFIG}")
+
+    # Resumen en texto de la mejor config (por robust_score)
     best = df.iloc[best_idx]
     print("\nMejor configuracion (robust_score):")
     print(
@@ -136,6 +180,19 @@ def main():
         f"mut={best.mutation_rate}"
     )
     print(f"  avg_fitness={best.avg_fitness:.2f}  std={best.std_fitness:.2f}")
+
+    # Resumen en texto de la configuracion mas rapida en converger
+    fastest = df_conv.iloc[fastest_idx]
+    print("\nConfiguracion mas rapida en converger (avg_generations_used):")
+    print(
+        f"  pop={int(fastest.population_size)} gen={int(fastest.generations)} "
+        f"tour={int(fastest.tournament_size)} cross={fastest.crossover_rate} "
+        f"mut={fastest.mutation_rate}"
+    )
+    print(
+        f"  avg_generations_used={fastest.avg_generations_used:.1f}  "
+        f"avg_fitness={fastest.avg_fitness:.4f}"
+    )
 
 
 if __name__ == "__main__":
