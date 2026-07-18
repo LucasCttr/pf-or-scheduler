@@ -1,26 +1,13 @@
 id,name,specialty_id,available_days,contract_hours_week
 S1,Dr. Lopez,TRA,lunes;martes;miercoles,20
 S2,Dra. Diaz,TRA,jueves;viernes,15
-S3,Dr. Fernandez,TRA,lunes;miercoles;viernes,18
 S4,Dr. Perez,CG,lunes;miercoles;viernes,18
 S5,Dra. Sosa,CG,martes;jueves,14
-S6,Dr. Acosta,CG,lunes;martes;jueves,16
 S7,Dra. Gomez,URO,martes;jueves,12
 S8,Dr. Ruiz,URO,lunes;miercoles;viernes,15
-S9,Dra. Medina,URO,miercoles;jueves;viernes,14
 S10,Dr. Suarez,NEU,lunes;martes,15
 S11,Dra. Romero,NEU,miercoles;jueves;viernes,15
 S12,Dra. Torres,GIN,lunes;martes;jueves,15
 S13,Dr. Molina,GIN,miercoles;viernes,10
 S14,Dra. Castro,OFT,lunes;miercoles;jueves,15
 S15,Dr. Vega,OFT,martes;viernes,10
-S16,Dra. Rojas,GIN,lunes;martes;miercoles,15
-S17,Dr. Flores,URO,martes;jueves,12
-S18,Dra. Herrera,OFT,lunes;viernes,14
-S19,Dr. Castillo,TRA,miercoles;jueves;viernes,16
-S20,Dra. Ramirez,TRA,lunes;martes;viernes,15
-S21,Dr. Morales,CG,miercoles;jueves,14
-S22,Dra. Jimenez,CG,lunes;martes;jueves,16
-S23,Dr. Ortiz,URO,miercoles;viernes,12
-S24,Dra. Vargas,NEU,lunes;martes;miercoles,15
-S25,Dr. Rivas,NEU,jueves;viernes,14

@@ -1,21 +1,13 @@
 id,name,specialty_id,required_room_type,estimated_duration
-PR1,Reduccion de fractura,TRA,1,60
-PR2,Protesis de cadera,TRA,2,150
-PR3,Artroscopia de rodilla,TRA,1,90
-PR4,Osteosintesis de tobillo,TRA,1,75
-PR5,Apendicectomia,CG,1,60
-PR6,Colecistectomia,CG,2,100
-PR7,Hernioplastia,CG,1,70
-PR8,Resección intestinal,CG,2,180
-PR9,Resectoscopia,URO,1,60
-PR10,Nefrectomia,URO,3,180
-PR11,Prostatectomia,URO,2,150
-PR12,Craneotomia,NEU,3,240
-PR13,Laminectomia,NEU,2,150
-PR14,Drenaje de hematoma subdural,NEU,3,120
-PR15,Histerectomia,GIN,2,120
-PR16,Cesarea,GIN,1,60
-PR17,Laparoscopia ginecologica,GIN,2,90
-PR18,Cirugia de cataratas,OFT,1,45
-PR19,Vitrectomia,OFT,2,90
-PR20,Cirugia de estrabismo,OFT,1,60
+P_TRA1,Reduccion de fractura,TRA,1,60
+P_TRA2,Artroscopia de rodilla,TRA,2,90
+P_CG1,Apendicectomia,CG,1,60
+P_CG2,Colecistectomia laparoscopica,CG,2,90
+P_URO1,Cistoscopia,URO,1,45
+P_URO2,Prostatectomia,URO,3,150
+P_NEU1,Laminectomia,NEU,2,120
+P_NEU2,Craniotomia,NEU,3,240
+P_GIN1,Legrado,GIN,1,30
+P_GIN2,Histerectomia,GIN,2,90
+P_OFT1,Cirugia de cataratas,OFT,1,30
+P_OFT2,Vitrectomia,OFT,2,60
