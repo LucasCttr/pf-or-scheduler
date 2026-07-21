@@ -1,4 +1,3 @@
-import copy
 import random
 from typing import Dict, List, Tuple
 
@@ -19,7 +18,6 @@ class GeneticAlgorithm:
         tournament_size: int = 3,
         crossover_rate: float = 0.8,
         mutation_rate: float = 0.05,
-        elitism_rate: float = 0.1,
         stagnation_limit: int = 30,
         alpha: float = 1.0,
         beta: float = 0.3,
@@ -41,7 +39,6 @@ class GeneticAlgorithm:
         self.tournament_size = tournament_size
         self.crossover_rate = crossover_rate
         self.mutation_rate = mutation_rate
-        self.elitism_count = max(1, int(elitism_rate * population_size))
         self.stagnation_limit = stagnation_limit
 
         self.alpha = alpha
@@ -51,18 +48,18 @@ class GeneticAlgorithm:
 
         # Cota Superior Ideal para normalizar la suma de prioridades (uso de p^2)
         sorted_patients = sorted(self.patients, key=lambda p: p.clinical_priority, reverse=True)
-        self.max_achievable_priority_sq = 0
+        self.max_achievable_priority = 0
         time_accumulated = 0
         for p in sorted_patients:
             proc = self.procedures.get(p.procedure_id)
             if proc and (time_accumulated + proc.estimated_duration <= self.total_available_time):
-                self.max_achievable_priority_sq += (p.clinical_priority ** 2)
+                self.max_achievable_priority += (p.clinical_priority ** 2)
                 
                 # CORRECCIÓN: Aquí es donde estaba fallando en la línea 60
                 time_accumulated += proc.estimated_duration 
             else:
                 break
-        self.max_achievable_priority_sq = max(1, self.max_achievable_priority_sq)
+        self.max_achievable_priority = max(1, self.max_achievable_priority)
 
         self.best_individual: Dict[Block, str] = None
         self.best_fitness: float = float("-inf")
@@ -103,7 +100,7 @@ class GeneticAlgorithm:
         # Suma de prioridades al cuadrado normalizada
         if surgeries:
             total_scheduled_priority_sq = sum((patients_by_id[s.patient_id].clinical_priority ** 2) for s in surgeries)
-            priority_score = min(1.0, total_scheduled_priority_sq / self.max_achievable_priority_sq)
+            priority_score = min(1.0, total_scheduled_priority_sq / self.max_achievable_priority)
         else:
             priority_score = 0.0
 
@@ -149,8 +146,7 @@ class GeneticAlgorithm:
         stagnation = 0
 
         for generation in range(self.generations):
-            ranked = sorted(range(len(population)), key=lambda i: fitnesses[i], reverse=True)
-            new_population = [copy.deepcopy(population[i]) for i in ranked[: self.elitism_count]]
+            new_population = []
 
             while len(new_population) < self.population_size:
                 parent1 = self._tournament_selection(population, fitnesses)

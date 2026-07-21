@@ -90,7 +90,6 @@ def main():
         tournament_size=3,
         crossover_rate=0.85,
         mutation_rate=0.04,
-        elitism_rate=0.1,
         stagnation_limit=30,
         alpha=1.0,
         beta=0.3,
