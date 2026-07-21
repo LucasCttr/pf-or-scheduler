@@ -38,7 +38,7 @@ GENERATIONS = [150]
 TOURNAMENT_SIZES = [2, 3]
 CROSSOVER_RATES = [0.70, 0.80, 0.90]
 MUTATION_RATES = [0.02, 0.05]
-REPETITIONS = 5     
+REPETITIONS = 15     
 
 BASE_SEED = 123
 USE_MULTIPROCESSING = True
@@ -58,7 +58,7 @@ def _run_single(args):
         surgeons=_SURGEONS, procedures=_PROCEDURES, patients=patients,
         population_size=population_size, generations=generations,
         tournament_size=tournament_size, crossover_rate=crossover_rate,
-        mutation_rate=mutation_rate, elitism_rate=0.10,
+        mutation_rate=mutation_rate,
         stagnation_limit=30, alpha=1.0, beta=0.3,
     )
 
