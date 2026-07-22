@@ -5,6 +5,7 @@ Genera gráficos a partir de grid_search_results.csv
 
 import sys
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 CSV_PATH = sys.argv[1] if len(sys.argv) > 1 else "grid_search_results.csv"
@@ -21,6 +22,12 @@ COLOR_BEST = "#2e8b57"
 COLOR_FAST = "#2e8b57"
 COLOR_SLOW = "#d9534f"
 
+# Paleta fija para especialidades, para que el color de cada una
+# sea consistente entre todos los gráficos
+SPECIALTY_PALETTE = [
+    "#2c6e91", "#2e8b57", "#d9534f", "#e0a72e", "#7b5ea7", "#3aa6a0"
+]
+
 def main():
     df = pd.read_csv(CSV_PATH)
     # Ordenamos por fitness promedio (ya que no existe robust_score)
@@ -32,6 +39,10 @@ def main():
 
     top_n = min(12, len(df))
     top = df.head(top_n)
+
+    # Columnas de especialidades detectadas automáticamente por prefijo
+    specialty_cols = [c for c in df.columns if c.startswith("assigned_")]
+    specialty_names = [c.replace("assigned_", "") for c in specialty_cols]
 
     # ----------------------------------------------------------------
     # Figura 1: avg_fitness para el top N configs
@@ -96,7 +107,66 @@ def main():
     fig4.tight_layout()
     fig4.savefig("grid_search_efficiency.png")
     plt.close(fig4)
-    
+
+    # ----------------------------------------------------------------
+    # Figura 5: Vector de especialidades - Top N configs (barras agrupadas)
+    # ----------------------------------------------------------------
+    if specialty_cols:
+        fig5, ax5 = plt.subplots(figsize=(13, 6))
+        n_specialties = len(specialty_cols)
+        bar_width = 0.8 / n_specialties
+        x = np.arange(top_n)
+
+        for i, (col, name) in enumerate(zip(specialty_cols, specialty_names)):
+            offset = (i - n_specialties / 2) * bar_width + bar_width / 2
+            ax5.bar(x + offset, top[col], width=bar_width,
+                    label=name, color=SPECIALTY_PALETTE[i % len(SPECIALTY_PALETTE)],
+                    edgecolor="white")
+
+        ax5.set_xticks(x)
+        ax5.set_xticklabels(top["config_label"], rotation=40, ha="right", fontsize=8)
+        ax5.set_ylabel("Pacientes asignados")
+        ax5.set_title(f"Distribución de pacientes por especialidad - Top {top_n} configuraciones")
+        ax5.legend(title="Especialidad", ncol=n_specialties, fontsize=8,
+                   loc="upper center", bbox_to_anchor=(0.5, -0.25))
+        fig5.tight_layout()
+        fig5.savefig("grid_search_specialty_distribution.png")
+        plt.close(fig5)
+
+        # ------------------------------------------------------------
+        # Figura 6: Vector de especialidades - solo la mejor config
+        # ------------------------------------------------------------
+        best_row = df.iloc[0]
+        fig6, ax6 = plt.subplots(figsize=(7, 6))
+        values = [best_row[c] for c in specialty_cols]
+        bars = ax6.bar(specialty_names, values,
+                       color=[SPECIALTY_PALETTE[i % len(SPECIALTY_PALETTE)]
+                              for i in range(n_specialties)],
+                       edgecolor="white")
+        ax6.bar_label(bars, padding=3, fontsize=9)
+        ax6.set_ylabel("Pacientes asignados")
+        ax6.set_title(f"Pacientes asignados por especialidad\n({best_row['config_label']})")
+        fig6.tight_layout()
+        fig6.savefig("grid_search_specialty_best_config.png")
+        plt.close(fig6)
+        
+        # ------------------------------------------------------------
+        # Figura 7: Vector de especialidades - mejor config, como torta
+        # ------------------------------------------------------------
+        fig7, ax7 = plt.subplots(figsize=(7, 7))
+        ax7.pie(
+            values,
+            labels=specialty_names,
+            autopct=lambda pct: f"{pct:.1f}%\n({int(round(pct/100*sum(values)))})",
+            colors=[SPECIALTY_PALETTE[i % len(SPECIALTY_PALETTE)] for i in range(n_specialties)],
+            startangle=90,
+            wedgeprops={"edgecolor": "white"},
+        )
+        ax7.set_title(f"Proporción de especialidades en la agenda final\n({best_row['config_label']})")
+        fig7.tight_layout()
+        fig7.savefig("grid_search_specialty_pie.png")
+        plt.close(fig7)
+
     print("Gráficos generados exitosamente.")
 
 if __name__ == "__main__":

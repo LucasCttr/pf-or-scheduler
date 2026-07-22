@@ -10,6 +10,7 @@ import csv
 import os
 import random
 import sys
+from collections import Counter
 from itertools import product
 from multiprocessing import Pool, cpu_count
 from statistics import mean
@@ -46,6 +47,23 @@ N_WORKERS = max(1, cpu_count() - 1)
 
 # Carga única de datos
 _SPECIALTIES, _ROOMS, _PROCEDURES, _SURGEONS, _PATIENTS_BASE = load_all(DATA_DIR)
+_SPECIALTY_IDS = [s.id for s in _SPECIALTIES]
+
+
+def _count_patients_by_specialty(agenda, patients):
+    """
+    Cuenta cuántos pacientes fueron efectivamente programados en la
+    agenda final, agrupados por especialidad.
+    """
+    patient_specialty = {p.id: p.specialty_id for p in patients}
+
+    counts = Counter(
+        patient_specialty[surgery.patient_id]
+        for surgery in agenda.all_surgeries()
+    )
+
+    return tuple(counts.get(sid, 0) for sid in _SPECIALTY_IDS)
+
 
 def _run_single(args):
     """Ejecuta una única corrida del AG."""
@@ -62,8 +80,10 @@ def _run_single(args):
         stagnation_limit=30, alpha=1.0, beta=0.3,
     )
 
-    _, best_fitness, _ = ga.run()
-    return best_fitness, len(ga.history)
+    best_chromosome, best_fitness, best_agenda = ga.run()
+    specialty_vector = _count_patients_by_specialty(best_agenda, patients)
+
+    return best_fitness, len(ga.history), specialty_vector
 
 def evaluate_configuration(population_size, generations, tournament_size, crossover_rate, mutation_rate):
     """Calcula métricas agregadas (sin std)."""
@@ -73,13 +93,23 @@ def evaluate_configuration(population_size, generations, tournament_size, crosso
     results = [_run_single(args) for args in run_args]
     fitness_values = [r[0] for r in results]
     gens_used = [r[1] for r in results]
+    vectors = [r[2] for r in results]
 
-    return {
+    # Vector de pacientes por especialidad de la corrida con mejor fitness
+    best_index = fitness_values.index(max(fitness_values))
+    best_vector = vectors[best_index]
+
+    metrics = {
         "avg_fitness": mean(fitness_values),
         "max_fitness": max(fitness_values),
         "min_fitness": min(fitness_values),
         "avg_generations_used": mean(gens_used),
     }
+
+    for sid, count in zip(_SPECIALTY_IDS, best_vector):
+        metrics[f"assigned_{sid}"] = count
+
+    return metrics
 
 def _evaluate_combination(combo):
     """Wrapper para multiprocessing."""

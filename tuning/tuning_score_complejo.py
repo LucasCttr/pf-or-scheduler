@@ -1,176 +1,159 @@
 """
-diagnostico_convergencia.py
+parameter_tuning.py
 
-Script de diagnostico para verificar la hipotesis de que el AG converge
-casi siempre a la misma distribucion de bloques por especialidad,
-independientemente de la configuracion de hiperparametros o la semilla.
-
-Colocar este archivo en la misma carpeta que parameter_tuning.py
-(por ejemplo dentro de la carpeta tuning_ag), ya que reutiliza la
-misma logica de rutas e imports.
-
-Que hace:
-  1. Corre el AG N veces con semillas distintas (y opcionalmente
-     configuraciones de hiperparametros distintas).
-  2. Para cada corrida, extrae el vector {specialty_id: cantidad_de_bloques}
-     del mejor cromosoma encontrado.
-  3. Compara esos vectores entre corridas: si son casi identicos pese a
-     usar semillas/configs distintas, confirma que el espacio de
-     soluciones "efectivo" es mucho mas chico que el nominal, y que el
-     decoder (por su logica de asignacion greedy por prioridad) domina
-     el resultado por sobre la busqueda genetica.
-  4. Reporta tambien la variacion del fitness para contrastar.
+Grid Search para encontrar una buena configuración de parámetros
+del Algoritmo Genético.
 """
 
 import copy
+import csv
 import os
 import random
 import sys
 from collections import Counter
-from statistics import mean, pstdev
+from itertools import product
+from multiprocessing import Pool, cpu_count
+from statistics import mean
 
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Si el script esta en la raiz del proyecto (existe carpeta "data" al lado),
-# usamos esa carpeta directamente. Si esta en una subcarpeta (ej. tuning_ag),
-# subimos un nivel para llegar a la raiz del proyecto.
-if os.path.isdir(os.path.join(_SCRIPT_DIR, "data")):
-    BASE_DIR = _SCRIPT_DIR
-else:
-    BASE_DIR = os.path.dirname(_SCRIPT_DIR)
-
+# ============================================================
+# Configuración de rutas
+# ============================================================
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, BASE_DIR)
 DATA_DIR = os.path.join(BASE_DIR, "data")
+OUTPUT_CSV = os.path.join(os.path.dirname(__file__), "grid_search_results.csv")
 
+# ============================================================
+# Imports del proyecto
+# ============================================================
 from data_loader import load_all
 from genetic_algorithm import GeneticAlgorithm
 
+# ============================================================
+# Configuración general
+# ============================================================
 DAYS = ["lunes", "martes", "miercoles", "jueves", "viernes"]
 
-# ============================================================
-# Configuracion del diagnostico
-# ============================================================
+POPULATION_SIZES = [80, 120]
+GENERATIONS = [150]
+TOURNAMENT_SIZES = [2, 3]
+CROSSOVER_RATES = [0.70, 0.80, 0.90]
+MUTATION_RATES = [0.02, 0.05]
+REPETITIONS = 15
 
-N_RUNS = 12          # cantidad de corridas independientes a comparar
-BASE_SEED = 500
+BASE_SEED = 123
+USE_MULTIPROCESSING = True
+N_WORKERS = max(1, cpu_count() - 1)
 
-# Configuraciones fijas "razonables" (podes variar estos valores entre
-# corridas si queres ademas comparar el efecto de la config, no solo
-# de la semilla)
-RUN_CONFIGS = [
-    dict(population_size=80, generations=150, tournament_size=3,
-         crossover_rate=0.8, mutation_rate=0.02, elitism_rate=0.10,
-         stagnation_limit=30, alpha=1.0, beta=0.3),
-    dict(population_size=120, generations=150, tournament_size=2,
-         crossover_rate=0.7, mutation_rate=0.05, elitism_rate=0.10,
-         stagnation_limit=30, alpha=1.0, beta=0.3),
-]
+# Carga única de datos
+_SPECIALTIES, _ROOMS, _PROCEDURES, _SURGEONS, _PATIENTS_BASE = load_all(DATA_DIR)
+_SPECIALTY_IDS = [s.id for s in _SPECIALTIES]
 
 
-def specialty_block_vector(chromosome, specialty_ids):
-    """Cuenta cuantos bloques quedaron asignados a cada especialidad."""
-    counts = Counter(chromosome.values())
-    return tuple(counts.get(sid, 0) for sid in specialty_ids)
+def _count_patients_by_specialty(agenda, patients):
+    """
+    Cuenta cuántos pacientes fueron efectivamente programados en la
+    agenda final, agrupados por especialidad.
+    """
+    patient_specialty = {p.id: p.specialty_id for p in patients}
+
+    counts = Counter(
+        patient_specialty[surgery.patient_id]
+        for surgery in agenda.all_surgeries()
+    )
+
+    return tuple(counts.get(sid, 0) for sid in _SPECIALTY_IDS)
 
 
-def vector_distance(v1, v2):
-    """Distancia L1 simple entre dos vectores de conteo por especialidad."""
-    return sum(abs(a - b) for a, b in zip(v1, v2))
+def _run_single(args):
+    """Ejecuta una única corrida del AG."""
+    (population_size, generations, tournament_size, crossover_rate, mutation_rate, seed) = args
+    random.seed(seed)
+    patients = copy.deepcopy(_PATIENTS_BASE)
+
+    ga = GeneticAlgorithm(
+        days=DAYS, rooms=_ROOMS, specialties=_SPECIALTIES,
+        surgeons=_SURGEONS, procedures=_PROCEDURES, patients=patients,
+        population_size=population_size, generations=generations,
+        tournament_size=tournament_size, crossover_rate=crossover_rate,
+        mutation_rate=mutation_rate,
+        stagnation_limit=30, alpha=1.0, beta=0.3,
+    )
+
+    best_chromosome, best_fitness, best_agenda = ga.run()
+    specialty_vector = _count_patients_by_specialty(best_agenda, patients)
+
+    return best_fitness, len(ga.history), specialty_vector
+
+
+def evaluate_configuration(population_size, generations, tournament_size, crossover_rate, mutation_rate):
+    """Calcula métricas agregadas (sin std)."""
+    run_args = [(population_size, generations, tournament_size, crossover_rate, mutation_rate, BASE_SEED + rep)
+                for rep in range(REPETITIONS)]
+
+    results = [_run_single(args) for args in run_args]
+    fitness_values = [r[0] for r in results]
+    gens_used = [r[1] for r in results]
+    vectors = [r[2] for r in results]
+
+    # Vector de pacientes por especialidad de la corrida con mejor fitness
+    best_index = fitness_values.index(max(fitness_values))
+    best_vector = vectors[best_index]
+
+    metrics = {
+        "avg_fitness": mean(fitness_values),
+        "max_fitness": max(fitness_values),
+        "min_fitness": min(fitness_values),
+        "avg_generations_used": mean(gens_used),
+    }
+
+    for sid, count in zip(_SPECIALTY_IDS, best_vector):
+        metrics[f"assigned_{sid}"] = count
+
+    return metrics
+
+
+def _evaluate_combination(combo):
+    """Wrapper para multiprocessing."""
+    metrics = evaluate_configuration(*combo)
+    return {
+        "population_size": combo[0], "generations": combo[1],
+        "tournament_size": combo[2], "crossover_rate": combo[3],
+        "mutation_rate": combo[4], **metrics
+    }
 
 
 def main():
-    print(f"BASE_DIR: {BASE_DIR}")
-    print(f"DATA_DIR: {DATA_DIR}\n")
+    combinations = list(product(POPULATION_SIZES, GENERATIONS, TOURNAMENT_SIZES, CROSSOVER_RATES, MUTATION_RATES))
 
-    specialties, rooms, procedures, surgeons, patients_base = load_all(DATA_DIR)
-    specialty_ids = [s.id for s in specialties]
+    print(f"Probando {len(combinations)} configuraciones x {REPETITIONS} repeticiones...")
+    results = []
 
-    print(f"Dataset: {len(patients_base)} pacientes, {len(rooms)} quirofanos, "
-          f"{len(specialties)} especialidades\n")
-    print(f"Corriendo {N_RUNS} ejecuciones independientes "
-          f"(alternando entre {len(RUN_CONFIGS)} configs distintas)...\n")
-
-    fitness_values = []
-    vectors = []
-    run_info = []
-
-    for i in range(N_RUNS):
-        seed = BASE_SEED + i
-        cfg = RUN_CONFIGS[i % len(RUN_CONFIGS)]
-
-        random.seed(seed)
-        patients = copy.deepcopy(patients_base)
-
-        ga = GeneticAlgorithm(
-            days=DAYS,
-            rooms=rooms,
-            specialties=specialties,
-            surgeons=surgeons,
-            procedures=procedures,
-            patients=patients,
-            **cfg,
-        )
-
-        best_chromosome, best_fitness, best_agenda = ga.run()
-
-        vec = specialty_block_vector(best_chromosome, specialty_ids)
-        fitness_values.append(best_fitness)
-        vectors.append(vec)
-        run_info.append((seed, cfg, vec, best_fitness))
-
-        print(f"[{i+1:>2}/{N_RUNS}] seed={seed} pop={cfg['population_size']} "
-              f"tour={cfg['tournament_size']} cross={cfg['crossover_rate']} "
-              f"mut={cfg['mutation_rate']} -> fitness={best_fitness:.4f} "
-              f"vector={vec}")
-
-    # ============================================================
-    # Analisis de resultados
-    # ============================================================
-    print("\n" + "=" * 70)
-    print("ANALISIS DE CONVERGENCIA ESTRUCTURAL")
-    print("=" * 70)
-
-    print(f"\nEspecialidades (orden del vector): {specialty_ids}")
-
-    # Fitness reportado solo con media, min y max
-    print(f"\nFitness: mean={mean(fitness_values):.4f}  "
-          f"min={min(fitness_values):.4f}  max={max(fitness_values):.4f}")
-
-    unique_vectors = set(vectors)
-    print(f"\nVectores de bloques-por-especialidad unicos encontrados: "
-          f"{len(unique_vectors)} de {N_RUNS} corridas")
-
-    if len(unique_vectors) == 1:
-        print(">> TODAS las corridas convergieron EXACTAMENTE a la misma "
-              "distribucion de bloques por especialidad.")
-        print(">> Esto confirma que el decoder (asignacion greedy por "
-              "prioridad clinica) domina el resultado, y que el espacio "
-              "de soluciones efectivo es mucho mas chico que el nominal.")
+    if USE_MULTIPROCESSING and N_WORKERS > 1:
+        with Pool(N_WORKERS) as pool:
+            for i, result in enumerate(pool.imap(_evaluate_combination, combinations), start=1):
+                results.append(result)
+                print(f"[{i}/{len(combinations)}] Config evaluada -> avg={result['avg_fitness']:.4f}")
     else:
-        # Distancia promedio entre todos los pares de vectores
-        distances = []
-        for a in range(len(vectors)):
-            for b in range(a + 1, len(vectors)):
-                distances.append(vector_distance(vectors[a], vectors[b]))
-        total_blocks = len(DAYS) * len(rooms)
-        print(f">> Distancia L1 promedio entre vectores de distintas "
-              f"corridas: {mean(distances):.2f} "
-              f"(sobre un total de {total_blocks} bloques)")
-        print(f">> Distancia L1 maxima observada: {max(distances)}")
-        if mean(distances) < 0.05 * total_blocks:
-            print(">> La distancia promedio es muy baja en relacion al "
-                  "total de bloques: las corridas convergen a "
-                  "distribuciones CASI identicas pese a variar semilla "
-                  "y configuracion.")
-        else:
-            print(">> Hay variacion estructural real entre corridas: "
-                  "el resultado NO depende solo del decoder.")
+        for i, combo in enumerate(combinations, start=1):
+            results.append(_evaluate_combination(combo))
+            print(f"[{i}/{len(combinations)}] Config evaluada -> avg={results[-1]['avg_fitness']:.4f}")
 
-    print("\nDetalle de vectores por corrida:")
-    for seed, cfg, vec, fit in run_info:
-        print(f"  seed={seed:<5} pop={cfg['population_size']:<4} "
-              f"tour={cfg['tournament_size']} -> fitness={fit:.4f}  "
-              f"vector={vec}")  
+    # Ordenar por fitness promedio
+    results.sort(key=lambda r: r["avg_fitness"], reverse=True)
+
+    # Exportar CSV
+    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=results[0].keys())
+        writer.writeheader()
+        writer.writerows(results)
+
+    print("\n===================================")
+    print("MEJOR CONFIGURACIÓN (por avg_fitness)")
+    print("===================================")
+    for k, v in results[0].items():
+        print(f"{k}: {v}")
+    print(f"\nResultados guardados en: {OUTPUT_CSV}")
 
 
 if __name__ == "__main__":
