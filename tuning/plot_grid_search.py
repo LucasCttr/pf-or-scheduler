@@ -166,6 +166,53 @@ def main():
         fig7.tight_layout()
         fig7.savefig("grid_search_specialty_pie.png")
         plt.close(fig7)
+        
+        # ----------------------------------------------------------------
+    # Figura 8: Especialidad asignada por bloque (día x quirófano)
+    # ----------------------------------------------------------------
+    import os as _os
+    chromosome_csv = _os.path.join(_os.path.dirname(CSV_PATH) or ".", "best_chromosome.csv")
+
+    if _os.path.exists(chromosome_csv):
+        df_chr = pd.read_csv(chromosome_csv)
+
+        days_order = ["lunes", "martes", "miercoles", "jueves", "viernes"]
+        rooms_order = sorted(df_chr["room_id"].unique())
+
+        pivot = df_chr.pivot(index="room_id", columns="day", values="specialty_id")
+        pivot = pivot.reindex(index=rooms_order, columns=days_order)
+
+        all_specialties = sorted(df_chr["specialty_id"].unique())
+        specialty_to_num = {s: i for i, s in enumerate(all_specialties)}
+        pivot_num = pivot.replace(specialty_to_num)
+
+        fig8, ax8 = plt.subplots(figsize=(9, 6))
+        cmap = plt.matplotlib.colors.ListedColormap(
+            [SPECIALTY_PALETTE[i % len(SPECIALTY_PALETTE)] for i in range(len(all_specialties))]
+        )
+        im = ax8.imshow(pivot_num.values, cmap=cmap, aspect="auto")
+
+        ax8.set_xticks(range(len(days_order)))
+        ax8.set_xticklabels(days_order)
+        ax8.set_yticks(range(len(rooms_order)))
+        ax8.set_yticklabels(rooms_order)
+
+        # Etiqueta de especialidad dentro de cada celda
+        for i in range(len(rooms_order)):
+            for j in range(len(days_order)):
+                val = pivot.values[i, j]
+                if pd.notna(val):
+                    ax8.text(j, i, val, ha="center", va="center",
+                             fontsize=9, color="white", fontweight="bold")
+
+        ax8.set_title("Especialidad asignada por bloque (día x quirófano)")
+        fig8.tight_layout()
+        fig8.savefig("grid_search_chromosome_grid.png")
+        plt.close(fig8)
+    else:
+        print(f"Aviso: no se encontró {chromosome_csv}, se omite la grilla de cromosoma.")
+
+    print("Gráficos generados exitosamente.")
 
     print("Gráficos generados exitosamente.")
 

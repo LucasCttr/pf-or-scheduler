@@ -22,6 +22,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, BASE_DIR)
 DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUT_CSV = os.path.join(os.path.dirname(__file__), "grid_search_results.csv")
+CHROMOSOMES_CSV = os.path.join(os.path.dirname(__file__), "chromosomes_by_config.csv")
 
 # ============================================================
 # Imports del proyecto
@@ -40,6 +41,7 @@ TOURNAMENT_SIZES = [2, 3]
 CROSSOVER_RATES = [0.70, 0.80, 0.90]
 MUTATION_RATES = [0.02, 0.05]
 REPETITIONS = 15     
+ESTANCAMIENTO_LIMIT = [15,30]  # Número de generaciones sin mejora antes de detener el AG
 
 BASE_SEED = 123
 USE_MULTIPROCESSING = True
@@ -50,24 +52,23 @@ _SPECIALTIES, _ROOMS, _PROCEDURES, _SURGEONS, _PATIENTS_BASE = load_all(DATA_DIR
 _SPECIALTY_IDS = [s.id for s in _SPECIALTIES]
 
 
-def _count_patients_by_specialty(agenda, patients):
-    """
-    Cuenta cuántos pacientes fueron efectivamente programados en la
-    agenda final, agrupados por especialidad.
-    """
-    patient_specialty = {p.id: p.specialty_id for p in patients}
+def _config_label(population_size, tournament_size, crossover_rate, mutation_rate, stagnation_limit):
+    return f"pop{population_size}_t{tournament_size}_cx{crossover_rate}_mut{mutation_rate}_stag{stagnation_limit}"
 
+
+def _count_patients_by_specialty(agenda, patients):
+    """Cuenta cuántos pacientes fueron efectivamente programados, por especialidad."""
+    patient_specialty = {p.id: p.specialty_id for p in patients}
     counts = Counter(
         patient_specialty[surgery.patient_id]
         for surgery in agenda.all_surgeries()
     )
-
     return tuple(counts.get(sid, 0) for sid in _SPECIALTY_IDS)
 
 
 def _run_single(args):
-    """Ejecuta una única corrida del AG."""
-    (population_size, generations, tournament_size, crossover_rate, mutation_rate, seed) = args
+    """Ejecuta una única corrida del AG. Devuelve también el cromosoma."""
+    (population_size, generations, tournament_size, crossover_rate, mutation_rate, stagnation_limit, seed) = args
     random.seed(seed)
     patients = copy.deepcopy(_PATIENTS_BASE)
 
@@ -77,27 +78,29 @@ def _run_single(args):
         population_size=population_size, generations=generations,
         tournament_size=tournament_size, crossover_rate=crossover_rate,
         mutation_rate=mutation_rate,
-        stagnation_limit=30, alpha=1.0, beta=0.3,
+        stagnation_limit=stagnation_limit, alpha=1.0, beta=0.3,
     )
 
     best_chromosome, best_fitness, best_agenda = ga.run()
     specialty_vector = _count_patients_by_specialty(best_agenda, patients)
 
-    return best_fitness, len(ga.history), specialty_vector
+    return best_fitness, len(ga.history), specialty_vector, best_chromosome
 
-def evaluate_configuration(population_size, generations, tournament_size, crossover_rate, mutation_rate):
-    """Calcula métricas agregadas (sin std)."""
-    run_args = [(population_size, generations, tournament_size, crossover_rate, mutation_rate, BASE_SEED + rep)
+
+def evaluate_configuration(population_size, generations, tournament_size, crossover_rate, mutation_rate, stagnation_limit):
+    """Calcula métricas agregadas y se queda con el cromosoma de mejor fitness."""
+    run_args = [(population_size, generations, tournament_size, crossover_rate, mutation_rate, stagnation_limit, BASE_SEED + rep)
                 for rep in range(REPETITIONS)]
 
     results = [_run_single(args) for args in run_args]
     fitness_values = [r[0] for r in results]
     gens_used = [r[1] for r in results]
     vectors = [r[2] for r in results]
+    chromosomes = [r[3] for r in results]
 
-    # Vector de pacientes por especialidad de la corrida con mejor fitness
     best_index = fitness_values.index(max(fitness_values))
     best_vector = vectors[best_index]
+    best_chromosome = chromosomes[best_index]
 
     metrics = {
         "avg_fitness": mean(fitness_values),
@@ -109,41 +112,59 @@ def evaluate_configuration(population_size, generations, tournament_size, crosso
     for sid, count in zip(_SPECIALTY_IDS, best_vector):
         metrics[f"assigned_{sid}"] = count
 
-    return metrics
+    return metrics, best_chromosome
+
 
 def _evaluate_combination(combo):
-    """Wrapper para multiprocessing."""
-    metrics = evaluate_configuration(*combo)
-    return {
+    metrics, best_chromosome = evaluate_configuration(*combo)
+    row = {
         "population_size": combo[0], "generations": combo[1],
         "tournament_size": combo[2], "crossover_rate": combo[3],
-        "mutation_rate": combo[4], **metrics
+        "mutation_rate": combo[4], "stagnation_limit": combo[5], **metrics
     }
+    return row, best_chromosome, combo
+
 
 def main():
-    combinations = list(product(POPULATION_SIZES, GENERATIONS, TOURNAMENT_SIZES, CROSSOVER_RATES, MUTATION_RATES))
+    combinations = list(product(POPULATION_SIZES, GENERATIONS, TOURNAMENT_SIZES, CROSSOVER_RATES, MUTATION_RATES, ESTANCAMIENTO_LIMIT))
     
     print(f"Probando {len(combinations)} configuraciones x {REPETITIONS} repeticiones...")
     results = []
+    chromosomes_per_config = []  # (config_label, chromosome)
 
     if USE_MULTIPROCESSING and N_WORKERS > 1:
         with Pool(N_WORKERS) as pool:
-            for i, result in enumerate(pool.imap(_evaluate_combination, combinations), start=1):
-                results.append(result)
-                print(f"[{i}/{len(combinations)}] Config evaluada -> avg={result['avg_fitness']:.4f}")
+            for i, (row, chromosome, combo) in enumerate(pool.imap(_evaluate_combination, combinations), start=1):
+                results.append(row)
+                label = _config_label(combo[0], combo[2], combo[3], combo[4], combo[5])
+                chromosomes_per_config.append((label, chromosome))
+                print(f"[{i}/{len(combinations)}] Config evaluada -> avg={row['avg_fitness']:.4f}")
     else:
         for i, combo in enumerate(combinations, start=1):
-            results.append(_evaluate_combination(combo))
-            print(f"[{i}/{len(combinations)}] Config evaluada -> avg={results[-1]['avg_fitness']:.4f}")
+            row, chromosome, combo = _evaluate_combination(combo)
+            results.append(row)
+            label = _config_label(combo[0], combo[2], combo[3], combo[4], combo[5])
+            chromosomes_per_config.append((label, chromosome))
+            print(f"[{i}/{len(combinations)}] Config evaluada -> avg={row['avg_fitness']:.4f}")
 
     # Ordenar por fitness promedio
-    results.sort(key=lambda r: r["avg_fitness"], reverse=True)
+    order = sorted(range(len(results)), key=lambda i: results[i]["avg_fitness"], reverse=True)
+    results = [results[i] for i in order]
+    chromosomes_per_config = [chromosomes_per_config[i] for i in order]
 
-    # Exportar CSV
+    # Exportar CSV de métricas
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=results[0].keys())
         writer.writeheader()
         writer.writerows(results)
+
+    # Exportar CSV de cromosomas (uno por config, todos juntos)
+    with open(CHROMOSOMES_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["config_label", "day", "room_id", "specialty_id"])
+        for label, chromosome in chromosomes_per_config:
+            for block, specialty_id in chromosome.items():
+                writer.writerow([label, block.day, block.room_id, specialty_id])
 
     print("\n===================================")
     print("MEJOR CONFIGURACIÓN (por avg_fitness)")
@@ -151,6 +172,7 @@ def main():
     for k, v in results[0].items():
         print(f"{k}: {v}")
     print(f"\nResultados guardados en: {OUTPUT_CSV}")
+    print(f"Cromosomas por configuración guardados en: {CHROMOSOMES_CSV}")
 
 if __name__ == "__main__":
     main()

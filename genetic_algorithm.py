@@ -77,19 +77,28 @@ class GeneticAlgorithm:
         for sid in chromosome.values():
             counts[sid] += 1
 
-        deficit = {sid: max(0, self.min_blocks.get(sid, 0) - counts[sid]) for sid in self.specialty_ids}
+        for sid in self.specialty_ids:
+            need = self.min_blocks.get(sid, 0) - counts[sid]
+            if need <= 0:
+                continue
 
-        for sid, need in deficit.items():
-            if need <= 0: continue
-            donors = [b for b, s in chromosome.items() if counts[s] > self.min_blocks.get(s, 0)]
-            random.shuffle(donors)
-            for b in donors:
-                if need <= 0: break
+            candidate_blocks = list(chromosome.keys())
+            random.shuffle(candidate_blocks)
+
+            for b in candidate_blocks:
+                if need <= 0:
+                    break
                 old_sid = chromosome[b]
-                chromosome[b] = sid
-                counts[old_sid] -= 1
-                counts[sid] += 1
-                need -= 1
+                if old_sid == sid:
+                    continue
+                # Se revalida el mínimo del donante en cada extracción,
+                # no solo una vez al armar la lista.
+                if counts[old_sid] > self.min_blocks.get(old_sid, 0):
+                    chromosome[b] = sid
+                    counts[old_sid] -= 1
+                    counts[sid] += 1
+                    need -= 1
+
         return chromosome
 
     def _evaluate(self, chromosome: Dict[Block, str]) -> Tuple[float, Agenda]:
@@ -100,7 +109,9 @@ class GeneticAlgorithm:
         # Suma de prioridades al cuadrado normalizada
         if surgeries:
             total_scheduled_priority_sq = sum((patients_by_id[s.patient_id].clinical_priority ** 2) for s in surgeries)
-            priority_score = min(1.0, total_scheduled_priority_sq / self.max_achievable_priority)
+            # priority_score = min(1.0, total_scheduled_priority_sq / self.max_achievable_priority)
+            priority_score = total_scheduled_priority_sq / self.max_achievable_priority
+
         else:
             priority_score = 0.0
 
