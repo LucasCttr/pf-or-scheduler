@@ -1,546 +1,112 @@
 {
-  "fitness": 1.2312,
-  "generaciones_ejecutadas": 48,
+  "fitness": 1.1367,
+  "generaciones_ejecutadas": 58,
   "distribucion_semanal_especialidades": {
     "lunes": {
-      "Q1": "CG",
-      "Q2": "TRA",
-      "Q3": "NEU"
+      "Q1": "OFT",
+      "Q2": "CG",
+      "Q3": "URO"
     },
     "martes": {
-      "Q1": "CG",
-      "Q2": "CG",
-      "Q3": "OFT"
+      "Q1": "URO",
+      "Q2": "GIN",
+      "Q3": "CG"
     },
     "miercoles": {
       "Q1": "TRA",
-      "Q2": "GIN",
-      "Q3": "NEU"
+      "Q2": "NEU",
+      "Q3": "CG"
     },
     "jueves": {
-      "Q1": "URO",
-      "Q2": "GIN",
-      "Q3": "OFT"
+      "Q1": "TRA",
+      "Q2": "NEU",
+      "Q3": "CG"
     },
     "viernes": {
-      "Q1": "TRA",
+      "Q1": "GIN",
       "Q2": "OFT",
-      "Q3": "URO"
+      "Q3": "TRA"
     }
   },
   "agenda": {
     "lunes": {
       "Q1": {
-        "especialidad": "CG",
-        "minutos_utilizados": 300,
+        "especialidad": "OFT",
+        "minutos_utilizados": 210,
         "minutos_disponibles": 300,
         "cirugias": [
           {
-            "paciente_id": "P0023",
-            "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 8.4
+            "paciente_id": "P0073",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 4.0
           },
           {
-            "paciente_id": "P0035",
-            "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 7.14
+            "paciente_id": "P0095",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 4.0
           },
           {
-            "paciente_id": "P0041",
-            "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 6.39
+            "paciente_id": "P0034",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 2.0
           },
           {
-            "paciente_id": "P0040",
-            "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 4.37
+            "paciente_id": "P0092",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 2.0
           },
           {
-            "paciente_id": "P0031",
-            "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 2.38
+            "paciente_id": "P0011",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 1.0
+          },
+          {
+            "paciente_id": "P0084",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 1.0
+          },
+          {
+            "paciente_id": "P0087",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 1.0
           }
         ]
       },
       "Q2": {
-        "especialidad": "TRA",
-        "minutos_utilizados": 300,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0009",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 9.61
-          },
-          {
-            "paciente_id": "P0016",
-            "especialidad": "TRA",
-            "duracion_min": 90,
-            "prioridad_clinica": 8.7
-          },
-          {
-            "paciente_id": "P0007",
-            "especialidad": "TRA",
-            "duracion_min": 90,
-            "prioridad_clinica": 7.83
-          },
-          {
-            "paciente_id": "P0001",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 7.67
-          }
-        ]
-      },
-      "Q3": {
-        "especialidad": "NEU",
-        "minutos_utilizados": 240,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0067",
-            "especialidad": "NEU",
-            "duracion_min": 120,
-            "prioridad_clinica": 9.72
-          },
-          {
-            "paciente_id": "P0069",
-            "especialidad": "NEU",
-            "duracion_min": 120,
-            "prioridad_clinica": 8.78
-          }
-        ]
-      }
-    },
-    "martes": {
-      "Q1": {
         "especialidad": "CG",
         "minutos_utilizados": 300,
         "minutos_disponibles": 300,
         "cirugias": [
           {
-            "paciente_id": "P0039",
+            "paciente_id": "P0017",
             "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 8.58
-          },
-          {
-            "paciente_id": "P0028",
-            "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 7.72
-          },
-          {
-            "paciente_id": "P0032",
-            "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 6.37
+            "duracion_min": 90,
+            "prioridad_clinica": 10.0
           },
           {
             "paciente_id": "P0025",
             "especialidad": "CG",
             "duracion_min": 60,
-            "prioridad_clinica": 2.91
-          },
-          {
-            "paciente_id": "P0030",
-            "especialidad": "CG",
-            "duracion_min": 60,
-            "prioridad_clinica": 1.82
-          }
-        ]
-      },
-      "Q2": {
-        "especialidad": "CG",
-        "minutos_utilizados": 270,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0034",
-            "especialidad": "CG",
-            "duracion_min": 90,
-            "prioridad_clinica": 9.74
-          },
-          {
-            "paciente_id": "P0026",
-            "especialidad": "CG",
-            "duracion_min": 90,
-            "prioridad_clinica": 8.96
+            "prioridad_clinica": 10.0
           },
           {
             "paciente_id": "P0033",
             "especialidad": "CG",
             "duracion_min": 90,
-            "prioridad_clinica": 6.36
-          }
-        ]
-      },
-      "Q3": {
-        "especialidad": "OFT",
-        "minutos_utilizados": 300,
-        "minutos_disponibles": 300,
-        "cirugias": [
+            "prioridad_clinica": 10.0
+          },
           {
-            "paciente_id": "P0116",
-            "especialidad": "OFT",
+            "paciente_id": "P0018",
+            "especialidad": "CG",
             "duracion_min": 60,
-            "prioridad_clinica": 9.45
-          },
-          {
-            "paciente_id": "P0121",
-            "especialidad": "OFT",
-            "duracion_min": 30,
-            "prioridad_clinica": 9.1
-          },
-          {
-            "paciente_id": "P0110",
-            "especialidad": "OFT",
-            "duracion_min": 30,
-            "prioridad_clinica": 8.85
-          },
-          {
-            "paciente_id": "P0108",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 8.22
-          },
-          {
-            "paciente_id": "P0119",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 7.56
-          },
-          {
-            "paciente_id": "P0125",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 6.97
-          }
-        ]
-      }
-    },
-    "miercoles": {
-      "Q1": {
-        "especialidad": "TRA",
-        "minutos_utilizados": 300,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0015",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 6.95
-          },
-          {
-            "paciente_id": "P0003",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 6.31
-          },
-          {
-            "paciente_id": "P0005",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 6.05
-          },
-          {
-            "paciente_id": "P0020",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 5.81
-          },
-          {
-            "paciente_id": "P0021",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 5.16
-          }
-        ]
-      },
-      "Q2": {
-        "especialidad": "GIN",
-        "minutos_utilizados": 300,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0102",
-            "especialidad": "GIN",
-            "duracion_min": 90,
-            "prioridad_clinica": 9.09
-          },
-          {
-            "paciente_id": "P0088",
-            "especialidad": "GIN",
-            "duracion_min": 30,
-            "prioridad_clinica": 8.5
-          },
-          {
-            "paciente_id": "P0098",
-            "especialidad": "GIN",
-            "duracion_min": 90,
-            "prioridad_clinica": 6.05
-          },
-          {
-            "paciente_id": "P0083",
-            "especialidad": "GIN",
-            "duracion_min": 30,
-            "prioridad_clinica": 5.12
-          },
-          {
-            "paciente_id": "P0103",
-            "especialidad": "GIN",
-            "duracion_min": 30,
-            "prioridad_clinica": 2.89
-          },
-          {
-            "paciente_id": "P0093",
-            "especialidad": "GIN",
-            "duracion_min": 30,
-            "prioridad_clinica": 2.83
-          }
-        ]
-      },
-      "Q3": {
-        "especialidad": "NEU",
-        "minutos_utilizados": 240,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0071",
-            "especialidad": "NEU",
-            "duracion_min": 120,
-            "prioridad_clinica": 9.34
-          },
-          {
-            "paciente_id": "P0072",
-            "especialidad": "NEU",
-            "duracion_min": 120,
-            "prioridad_clinica": 4.81
-          }
-        ]
-      }
-    },
-    "jueves": {
-      "Q1": {
-        "especialidad": "URO",
-        "minutos_utilizados": 270,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0045",
-            "especialidad": "URO",
-            "duracion_min": 45,
-            "prioridad_clinica": 9.8
-          },
-          {
-            "paciente_id": "P0049",
-            "especialidad": "URO",
-            "duracion_min": 45,
-            "prioridad_clinica": 7.42
-          },
-          {
-            "paciente_id": "P0060",
-            "especialidad": "URO",
-            "duracion_min": 45,
-            "prioridad_clinica": 7.06
-          },
-          {
-            "paciente_id": "P0047",
-            "especialidad": "URO",
-            "duracion_min": 45,
-            "prioridad_clinica": 3.39
-          },
-          {
-            "paciente_id": "P0062",
-            "especialidad": "URO",
-            "duracion_min": 45,
-            "prioridad_clinica": 3.24
-          },
-          {
-            "paciente_id": "P0051",
-            "especialidad": "URO",
-            "duracion_min": 45,
-            "prioridad_clinica": 3.23
-          }
-        ]
-      },
-      "Q2": {
-        "especialidad": "GIN",
-        "minutos_utilizados": 300,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0099",
-            "especialidad": "GIN",
-            "duracion_min": 30,
-            "prioridad_clinica": 9.51
-          },
-          {
-            "paciente_id": "P0090",
-            "especialidad": "GIN",
-            "duracion_min": 90,
-            "prioridad_clinica": 9.45
-          },
-          {
-            "paciente_id": "P0086",
-            "especialidad": "GIN",
-            "duracion_min": 90,
-            "prioridad_clinica": 9.4
-          },
-          {
-            "paciente_id": "P0100",
-            "especialidad": "GIN",
-            "duracion_min": 30,
-            "prioridad_clinica": 8.51
-          },
-          {
-            "paciente_id": "P0095",
-            "especialidad": "GIN",
-            "duracion_min": 30,
-            "prioridad_clinica": 6.71
-          },
-          {
-            "paciente_id": "P0085",
-            "especialidad": "GIN",
-            "duracion_min": 30,
-            "prioridad_clinica": 5.84
-          }
-        ]
-      },
-      "Q3": {
-        "especialidad": "OFT",
-        "minutos_utilizados": 300,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0106",
-            "especialidad": "OFT",
-            "duracion_min": 30,
-            "prioridad_clinica": 9.79
-          },
-          {
-            "paciente_id": "P0105",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 9.33
-          },
-          {
-            "paciente_id": "P0123",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 5.68
-          },
-          {
-            "paciente_id": "P0111",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 2.8
-          },
-          {
-            "paciente_id": "P0128",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 2.73
-          },
-          {
-            "paciente_id": "P0113",
-            "especialidad": "OFT",
-            "duracion_min": 30,
-            "prioridad_clinica": 1.21
-          }
-        ]
-      }
-    },
-    "viernes": {
-      "Q1": {
-        "especialidad": "TRA",
-        "minutos_utilizados": 300,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0011",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 8.63
-          },
-          {
-            "paciente_id": "P0019",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 7.32
-          },
-          {
-            "paciente_id": "P0008",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 4.06
-          },
-          {
-            "paciente_id": "P0017",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 3.5
-          },
-          {
-            "paciente_id": "P0013",
-            "especialidad": "TRA",
-            "duracion_min": 60,
-            "prioridad_clinica": 1.71
-          }
-        ]
-      },
-      "Q2": {
-        "especialidad": "OFT",
-        "minutos_utilizados": 300,
-        "minutos_disponibles": 300,
-        "cirugias": [
-          {
-            "paciente_id": "P0120",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 6.46
-          },
-          {
-            "paciente_id": "P0126",
-            "especialidad": "OFT",
-            "duracion_min": 30,
-            "prioridad_clinica": 5.56
-          },
-          {
-            "paciente_id": "P0124",
-            "especialidad": "OFT",
-            "duracion_min": 30,
-            "prioridad_clinica": 4.88
-          },
-          {
-            "paciente_id": "P0127",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 4.62
-          },
-          {
-            "paciente_id": "P0115",
-            "especialidad": "OFT",
-            "duracion_min": 30,
-            "prioridad_clinica": 4.16
-          },
-          {
-            "paciente_id": "P0114",
-            "especialidad": "OFT",
-            "duracion_min": 30,
-            "prioridad_clinica": 3.95
-          },
-          {
-            "paciente_id": "P0112",
-            "especialidad": "OFT",
-            "duracion_min": 60,
-            "prioridad_clinica": 3.75
+            "prioridad_clinica": 8.0
           }
         ]
       },
@@ -550,144 +116,510 @@
         "minutos_disponibles": 300,
         "cirugias": [
           {
-            "paciente_id": "P0048",
+            "paciente_id": "P0031",
             "especialidad": "URO",
             "duracion_min": 45,
-            "prioridad_clinica": 9.68
+            "prioridad_clinica": 8.0
+          },
+          {
+            "paciente_id": "P0081",
+            "especialidad": "URO",
+            "duracion_min": 150,
+            "prioridad_clinica": 8.0
+          },
+          {
+            "paciente_id": "P0093",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 6.0
+          },
+          {
+            "paciente_id": "P0043",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 5.0
+          }
+        ]
+      }
+    },
+    "martes": {
+      "Q1": {
+        "especialidad": "URO",
+        "minutos_utilizados": 270,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0003",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 6.0
+          },
+          {
+            "paciente_id": "P0006",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 6.0
+          },
+          {
+            "paciente_id": "P0009",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 6.0
+          },
+          {
+            "paciente_id": "P0040",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 6.0
+          },
+          {
+            "paciente_id": "P0051",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 6.0
+          },
+          {
+            "paciente_id": "P0010",
+            "especialidad": "URO",
+            "duracion_min": 45,
+            "prioridad_clinica": 5.0
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "GIN",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0075",
+            "especialidad": "GIN",
+            "duracion_min": 30,
+            "prioridad_clinica": 5.0
+          },
+          {
+            "paciente_id": "P0012",
+            "especialidad": "GIN",
+            "duracion_min": 90,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0083",
+            "especialidad": "GIN",
+            "duracion_min": 90,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0042",
+            "especialidad": "GIN",
+            "duracion_min": 90,
+            "prioridad_clinica": 2.0
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "CG",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0069",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 10.0
+          },
+          {
+            "paciente_id": "P0077",
+            "especialidad": "CG",
+            "duracion_min": 60,
+            "prioridad_clinica": 10.0
+          },
+          {
+            "paciente_id": "P0041",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 9.0
+          },
+          {
+            "paciente_id": "P0096",
+            "especialidad": "CG",
+            "duracion_min": 60,
+            "prioridad_clinica": 9.0
+          }
+        ]
+      }
+    },
+    "miercoles": {
+      "Q1": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 300,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0014",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 7.0
+          },
+          {
+            "paciente_id": "P0024",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 7.0
+          },
+          {
+            "paciente_id": "P0035",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 5.0
+          },
+          {
+            "paciente_id": "P0001",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0071",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 4.0
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "NEU",
+        "minutos_utilizados": 240,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0086",
+            "especialidad": "NEU",
+            "duracion_min": 120,
+            "prioridad_clinica": 10.0
+          },
+          {
+            "paciente_id": "P0019",
+            "especialidad": "NEU",
+            "duracion_min": 120,
+            "prioridad_clinica": 9.0
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "CG",
+        "minutos_utilizados": 270,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0061",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 9.0
+          },
+          {
+            "paciente_id": "P0091",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 9.0
+          },
+          {
+            "paciente_id": "P0005",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 8.0
+          }
+        ]
+      }
+    },
+    "jueves": {
+      "Q1": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 180,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0058",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0067",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0085",
+            "especialidad": "TRA",
+            "duracion_min": 60,
+            "prioridad_clinica": 3.0
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "NEU",
+        "minutos_utilizados": 240,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0039",
+            "especialidad": "NEU",
+            "duracion_min": 120,
+            "prioridad_clinica": 9.0
+          },
+          {
+            "paciente_id": "P0097",
+            "especialidad": "NEU",
+            "duracion_min": 120,
+            "prioridad_clinica": 7.0
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "CG",
+        "minutos_utilizados": 270,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0055",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 9.0
+          },
+          {
+            "paciente_id": "P0072",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 9.0
+          },
+          {
+            "paciente_id": "P0028",
+            "especialidad": "CG",
+            "duracion_min": 90,
+            "prioridad_clinica": 8.0
+          }
+        ]
+      }
+    },
+    "viernes": {
+      "Q1": {
+        "especialidad": "GIN",
+        "minutos_utilizados": 180,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0052",
+            "especialidad": "GIN",
+            "duracion_min": 30,
+            "prioridad_clinica": 5.0
+          },
+          {
+            "paciente_id": "P0080",
+            "especialidad": "GIN",
+            "duracion_min": 30,
+            "prioridad_clinica": 5.0
+          },
+          {
+            "paciente_id": "P0076",
+            "especialidad": "GIN",
+            "duracion_min": 30,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0082",
+            "especialidad": "GIN",
+            "duracion_min": 30,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0074",
+            "especialidad": "GIN",
+            "duracion_min": 30,
+            "prioridad_clinica": 3.0
+          },
+          {
+            "paciente_id": "P0049",
+            "especialidad": "GIN",
+            "duracion_min": 30,
+            "prioridad_clinica": 2.0
+          }
+        ]
+      },
+      "Q2": {
+        "especialidad": "OFT",
+        "minutos_utilizados": 270,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0036",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0088",
+            "especialidad": "OFT",
+            "duracion_min": 60,
+            "prioridad_clinica": 4.0
+          },
+          {
+            "paciente_id": "P0094",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 4.0
           },
           {
             "paciente_id": "P0065",
-            "especialidad": "URO",
-            "duracion_min": 45,
-            "prioridad_clinica": 8.27
+            "especialidad": "OFT",
+            "duracion_min": 60,
+            "prioridad_clinica": 3.0
           },
           {
-            "paciente_id": "P0050",
-            "especialidad": "URO",
-            "duracion_min": 45,
-            "prioridad_clinica": 4.94
+            "paciente_id": "P0026",
+            "especialidad": "OFT",
+            "duracion_min": 60,
+            "prioridad_clinica": 2.0
           },
           {
-            "paciente_id": "P0059",
-            "especialidad": "URO",
-            "duracion_min": 150,
-            "prioridad_clinica": 4.19
+            "paciente_id": "P0013",
+            "especialidad": "OFT",
+            "duracion_min": 30,
+            "prioridad_clinica": 1.0
+          }
+        ]
+      },
+      "Q3": {
+        "especialidad": "TRA",
+        "minutos_utilizados": 270,
+        "minutos_disponibles": 300,
+        "cirugias": [
+          {
+            "paciente_id": "P0079",
+            "especialidad": "TRA",
+            "duracion_min": 90,
+            "prioridad_clinica": 7.0
+          },
+          {
+            "paciente_id": "P0056",
+            "especialidad": "TRA",
+            "duracion_min": 90,
+            "prioridad_clinica": 6.0
+          },
+          {
+            "paciente_id": "P0063",
+            "especialidad": "TRA",
+            "duracion_min": 90,
+            "prioridad_clinica": 6.0
           }
         ]
       }
     }
   },
   "resumen": {
-    "total_pacientes": 128,
-    "pacientes_programados": 72,
-    "pacientes_pendientes": 56,
+    "total_pacientes": 100,
+    "pacientes_programados": 62,
+    "pacientes_pendientes": 38,
     "ids_pacientes_pendientes": [
-      "P0046",
-      "P0122",
-      "P0068",
       "P0002",
-      "P0058",
-      "P0094",
-      "P0024",
-      "P0038",
-      "P0076",
-      "P0063",
-      "P0070",
-      "P0018",
-      "P0044",
-      "P0089",
-      "P0097",
-      "P0092",
-      "P0118",
-      "P0091",
-      "P0053",
-      "P0077",
-      "P0036",
-      "P0055",
-      "P0014",
-      "P0117",
-      "P0109",
-      "P0081",
-      "P0064",
-      "P0074",
-      "P0054",
-      "P0010",
-      "P0006",
       "P0004",
-      "P0029",
-      "P0104",
-      "P0012",
-      "P0043",
-      "P0080",
-      "P0082",
+      "P0007",
+      "P0008",
+      "P0015",
+      "P0016",
+      "P0020",
+      "P0021",
       "P0022",
-      "P0061",
-      "P0066",
-      "P0057",
-      "P0042",
-      "P0084",
-      "P0078",
-      "P0075",
-      "P0101",
-      "P0056",
+      "P0023",
       "P0027",
+      "P0029",
+      "P0030",
+      "P0032",
       "P0037",
-      "P0107",
-      "P0052",
-      "P0073",
-      "P0079",
-      "P0096",
-      "P0087"
+      "P0038",
+      "P0044",
+      "P0045",
+      "P0046",
+      "P0047",
+      "P0048",
+      "P0050",
+      "P0053",
+      "P0054",
+      "P0057",
+      "P0059",
+      "P0060",
+      "P0062",
+      "P0064",
+      "P0066",
+      "P0068",
+      "P0070",
+      "P0078",
+      "P0089",
+      "P0090",
+      "P0098",
+      "P0099",
+      "P0100"
     ]
   },
   "historial_fitness": [
-    1.1579,
-    1.2046,
-    1.1555,
-    1.1763,
-    1.1942,
-    1.1905,
-    1.1981,
-    1.2117,
-    1.214,
-    1.214,
-    1.2146,
-    1.223,
-    1.2207,
-    1.2207,
-    1.2207,
-    1.2207,
-    1.2207,
-    1.2312,
-    1.2207,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312,
-    1.2312
+    1.0489,
+    1.0616,
+    1.0616,
+    1.0494,
+    1.0657,
+    1.0899,
+    1.0862,
+    1.0812,
+    1.125,
+    1.125,
+    1.1061,
+    1.1053,
+    1.0992,
+    1.1119,
+    1.1246,
+    1.1103,
+    1.1008,
+    1.1008,
+    1.1148,
+    1.121,
+    1.121,
+    1.1215,
+    1.121,
+    1.1323,
+    1.1262,
+    1.1262,
+    1.1332,
+    1.1367,
+    1.1367,
+    1.1332,
+    1.1323,
+    1.126,
+    1.1323,
+    1.1323,
+    1.1367,
+    1.1323,
+    1.1323,
+    1.1323,
+    1.1323,
+    1.1332,
+    1.1332,
+    1.1332,
+    1.1332,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367,
+    1.1367
   ]
 }

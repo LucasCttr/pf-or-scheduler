@@ -73,10 +73,10 @@ def main():
         for i in range(len(all_specialties))
     ]
     fig.legend(handles, all_specialties, loc="lower center", ncol=len(all_specialties),
-               bbox_to_anchor=(0.5, -0.02), fontsize=9, title="Especialidad")
+               bbox_to_anchor=(0.5, 0.02), fontsize=9, title="Especialidad")
 
     fig.suptitle("Comparación de cromosomas entre configuraciones", fontsize=13, fontweight="bold")
-    fig.tight_layout(rect=[0, 0.04, 1, 0.96])
+    fig.tight_layout(rect=[0, 0.08, 1, 0.95])
     fig.savefig("chromosomes_comparison.png", dpi=150)
     plt.close(fig)
 
