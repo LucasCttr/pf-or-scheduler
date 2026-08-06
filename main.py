@@ -15,6 +15,7 @@ import os
 from data_loader import load_all
 from models import Block
 from genetic_algorithm import GeneticAlgorithm
+from validation import validate_agenda
 
 DAYS = ["lunes", "martes", "miercoles", "jueves", "viernes"]
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -96,6 +97,20 @@ def main():
     )
 
     best_chromosome, best_fitness, best_agenda = ga.run()
+    
+    # ============================================================
+    # VALIDACIÓN DE LA AGENDA
+    # ============================================================
+
+    validation = validate_agenda(
+        agenda=best_agenda,
+        patients=patients,
+        procedures=procedures,
+        surgeons=surgeons,
+        rooms=rooms,
+    )
+
+    validation.print_report()
 
     result = build_result_dict(DAYS, rooms, best_chromosome, best_fitness,
                                 best_agenda, patients, ga)
