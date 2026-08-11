@@ -1,90 +1,96 @@
-"""
-models.py
-Estructuras de datos del problema de programacion quirurgica.
-Basado en la seccion 10.4.2 (Modelado de los datos de entrada) y
-10.4.3 (Representacion de las soluciones) del documento.
-"""
+"""Domain models for the GA + deterministic decoder scheduler."""
+
 from dataclasses import dataclass
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 
 @dataclass
 class Specialty:
-    """Especialidad medica. Unidad de asignacion del Algoritmo Genetico."""
     id: str
     name: str
-    min_blocks: int = 0  # cantidad minima de bloques semanales garantizados
+    min_blocks: int = 0
+    max_blocks: int = 999
 
 
 @dataclass
 class Surgeon:
-    """Profesional medico responsable de las cirugias."""
     id: str
     name: str
-    specialty_id: str
-    available_days: Set[str]
-    contract_hours_week: float
+    specialty_ids: Set[str]
+    availability_hours: Dict[str, Tuple[int, int]]
+    contract_minutes_week: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.contract_minutes_week is None:
+            self.contract_minutes_week = sum(end - start for start, end in self.availability_hours.values())
+
+    @property
+    def available_days(self) -> Set[str]:
+        return set(self.availability_hours)
+
+    @property
+    def contract_hours_week(self) -> float:
+        return (self.contract_minutes_week or 0) / 60
+
+    @property
+    def specialty_id(self) -> str:
+        return sorted(self.specialty_ids)[0] if self.specialty_ids else ""
 
 
 @dataclass
 class Room:
-    """Quirofano fisico disponible."""
     id: str
     name: str
-    room_type: int  # nivel de complejidad soportado (mayor = mas complejo)
+    room_type: int
     daily_capacity_minutes: int
+    available_days: Set[str] | None = None
+    day_start_minute: int = 480
+
+    def is_available(self, day: str) -> bool:
+        return self.available_days is None or day in self.available_days
 
 
 @dataclass
 class Procedure:
-    """Procedimiento quirurgico."""
     id: str
     name: str
     specialty_id: str
     required_room_type: int
-    estimated_duration: int  # minutos
+    estimated_duration: int = 0
 
 
 @dataclass
 class Patient:
-    """Paciente pendiente de intervencion quirurgica."""
     id: str
     specialty_id: str
     procedure_id: str
     surgeon_id: str
-    clinical_priority: float  # combina prioridad clinica y tiempo en espera
-    scheduled: bool = False  # estado utilizado durante la construccion de agenda
+    clinical_priority: float
+    estimated_duration: int | None = None
+    scheduled: bool = False
 
 
 @dataclass(frozen=True)
 class Block:
-    """
-    Bloque quirurgico: unidad indivisible de asignacion.
-    Definido por la combinacion de un dia y un quirofano: B = (d, q)
-    """
     day: str
     room_id: str
-
-    def __repr__(self):
-        return f"({self.day}, {self.room_id})"
 
 
 @dataclass
 class ScheduledSurgery:
-    """Cirugia efectivamente programada dentro de un bloque."""
     patient_id: str
     block: Block
+    surgeon_id: str
+    surgeon_name: str
     duration: int
+    start_minute: int
+    end_minute: int
 
 
 @dataclass
 class Agenda:
-    """Resultado del decoder: agenda quirurgica semanal completa."""
     assignments: Dict[Block, List[ScheduledSurgery]]
-    used_time: Dict[Block, int]  # minutos utilizados por bloque
+    used_time: Dict[Block, int]
 
     def all_surgeries(self) -> List[ScheduledSurgery]:
-        result: List[ScheduledSurgery] = []
-        for surgeries in self.assignments.values():
-            result.extend(surgeries)
-        return result
+        return [surgery for surgeries in self.assignments.values() for surgery in surgeries]

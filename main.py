@@ -47,6 +47,10 @@ def build_result_dict(days, rooms, best_chromosome, best_fitness, best_agenda,
                     {
                         "paciente_id": s.patient_id,
                         "especialidad": patients_by_id[s.patient_id].specialty_id,
+                        "cirujano_id": s.surgeon_id,
+                        "cirujano": s.surgeon_name,
+                        "hora_inicio": f"{s.start_minute // 60:02d}:{s.start_minute % 60:02d}",
+                        "hora_fin": f"{s.end_minute // 60:02d}:{s.end_minute % 60:02d}",
                         "duracion_min": s.duration,
                         "prioridad_clinica": patients_by_id[s.patient_id].clinical_priority,
                     }
