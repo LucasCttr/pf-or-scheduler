@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
-from api import PlanningRequest, app, run_planning
+import api
+from api import PlanningJob, PlanningRequest, app, run_planning
 
 
 def minimal_payload():
@@ -61,6 +62,23 @@ def test_create_planning_keeps_async_contract(monkeypatch):
     assert response.json()["status"] == "planning"
     assert response.json()["uuid"]
     assert submitted
+
+
+def test_job_is_completed_only_after_callback_delivery(monkeypatch):
+    job_uuid = "11111111-2222-3333-4444-555555555555"
+    observed_statuses = []
+    api._jobs[job_uuid] = PlanningJob(uuid=job_uuid, status="planning")
+    monkeypatch.setattr(api, "run_planning", lambda payload: {"dias": [], "resumen": {}})
+
+    def observe_callback(payload):
+        observed_statuses.append(api._jobs[job_uuid].status)
+
+    monkeypatch.setattr(api, "_send_callback", observe_callback)
+
+    api._run_job(job_uuid, PlanningRequest.model_validate(minimal_payload()))
+
+    assert observed_statuses == ["planning"]
+    assert api._jobs[job_uuid].status == "completed"
 
 
 def test_run_planning_returns_back_and_front_contract():

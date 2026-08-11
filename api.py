@@ -131,7 +131,6 @@ def _run_job(job_uuid: str, payload: PlanningRequest) -> None:
         result = run_planning(payload)
     except Exception as exc:  # pragma: no cover - background boundary
         elapsed = round(time.perf_counter() - started, 3)
-        _update_job(job_uuid, "failed", str(exc), elapsed)
         _send_callback({
             "uuid": job_uuid,
             "status": "failed",
@@ -139,10 +138,10 @@ def _run_job(job_uuid: str, payload: PlanningRequest) -> None:
             "error_message": str(exc),
             "duration_seconds": elapsed,
         })
+        _update_job(job_uuid, "failed", str(exc), elapsed)
         return
     elapsed = round(time.perf_counter() - started, 3)
     result["duracion_segundos"] = elapsed
-    _update_job(job_uuid, "completed", None, elapsed)
     _send_callback({
         "uuid": job_uuid,
         "status": "completed",
@@ -150,6 +149,7 @@ def _run_job(job_uuid: str, payload: PlanningRequest) -> None:
         "error_message": None,
         "duration_seconds": elapsed,
     })
+    _update_job(job_uuid, "completed", None, elapsed)
 
 
 def run_planning(payload: PlanningRequest) -> dict[str, Any]:
