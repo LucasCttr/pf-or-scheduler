@@ -2,68 +2,75 @@
 main.py
 Punto de entrada del sistema.
 
-1. Carga los datos de entrada (especialidades, quirofanos, procedimientos,
-   cirujanos y pacientes) desde archivos CSV ubicados en la carpeta `data/`.
-2. Ejecuta el Algoritmo Genetico para obtener la mejor distribucion semanal
-   de especialidades sobre los quirofanos.
-3. Construye la agenda final mediante el decoder.
-4. Exporta el resultado completo a un archivo JSON.
+Flujo principal:
+1. Carga los CSV de entrada.
+2. Ejecuta el algoritmo genético para decidir la especialidad de cada bloque.
+3. Construye la agenda final con el decoder.
+4. Exporta la salida a agenda_resultado.json.
 """
 import json
 import os
+import time
 
 from data_loader import load_all
-from models import Block
 from genetic_algorithm import GeneticAlgorithm
-from validation import validate_agenda
+from models import Block
 
 DAYS = ["lunes", "martes", "miercoles", "jueves", "viernes"]
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "agenda_resultado.json")
 
 
-def build_result_dict(days, rooms, best_chromosome, best_fitness, best_agenda,
-                       patients, ga):
-    patients_by_id = {p.id: p for p in patients}
-
-    # Distribucion semanal de especialidades (cromosoma) en formato legible
-    distribucion = {
-        day: {room.id: best_chromosome[Block(day, room.id)] for room in rooms}
+def build_distribution_map(days, rooms, chromosome):
+    """Devuelve la distribución semanal de especialidades por quirófano."""
+    return {
+        day: {room.id: chromosome[Block(day, room.id)] for room in rooms}
         for day in days
     }
 
-    # Agenda detallada por dia / quirofano
+
+def build_block_result(room, block, chromosome, agenda, patients_by_id):
+    """Genera el JSON de detalle para un bloque concreto."""
+    surgeries = agenda.assignments.get(block, [])
+    return {
+        "especialidad": chromosome[block],
+        "minutos_utilizados": agenda.used_time.get(block, 0),
+        "minutos_disponibles": room.daily_capacity_minutes,
+        "cirugias": [
+            {
+                "paciente_id": surgery.patient_id,
+                "especialidad": patients_by_id[surgery.patient_id].specialty_id,
+                "duracion_min": surgery.duration,
+                "hora_inicio_min": surgery.start_time,
+                "hora_fin_min": surgery.end_time,
+                "prioridad_clinica": patients_by_id[surgery.patient_id].clinical_priority,
+            }
+            for surgery in surgeries
+        ],
+    }
+
+
+def build_result_dict(days, rooms, best_chromosome, best_fitness, best_agenda, patients, ga, execution_time_seconds):
+    """Compone el JSON final con la distribución semanal y la agenda detallada."""
+    patients_by_id = {patient.id: patient for patient in patients}
+    distribucion = build_distribution_map(days, rooms, best_chromosome)
+
     agenda_detalle = {}
     for day in days:
         agenda_detalle[day] = {}
         for room in rooms:
             block = Block(day, room.id)
-            surgeries = best_agenda.assignments.get(block, [])
-            agenda_detalle[day][room.id] = {
-                "especialidad": best_chromosome[block],
-                "minutos_utilizados": best_agenda.used_time.get(block, 0),
-                "minutos_disponibles": room.daily_capacity_minutes,
-                "cirugias": [
-                    {
-                        "paciente_id": s.patient_id,
-                        "especialidad": patients_by_id[s.patient_id].specialty_id,
-                        "cirujano_id": s.surgeon_id,
-                        "cirujano": s.surgeon_name,
-                        "hora_inicio": f"{s.start_minute // 60:02d}:{s.start_minute % 60:02d}",
-                        "hora_fin": f"{s.end_minute // 60:02d}:{s.end_minute % 60:02d}",
-                        "duracion_min": s.duration,
-                        "prioridad_clinica": patients_by_id[s.patient_id].clinical_priority,
-                    }
-                    for s in surgeries
-                ],
-            }
+            agenda_detalle[day][room.id] = build_block_result(
+                room, block, best_chromosome, best_agenda, patients_by_id
+            )
 
-    scheduled_ids = {s.patient_id for s in best_agenda.all_surgeries()}
-    pendientes = [p.id for p in patients if p.id not in scheduled_ids]
+    scheduled_ids = {surgery.patient_id for surgery in best_agenda.all_surgeries()}
+    pendientes = [patient.id for patient in patients if patient.id not in scheduled_ids]
 
     return {
         "fitness": round(best_fitness, 4),
         "generaciones_ejecutadas": len(ga.history),
+        "tiempo_ejecucion_segundos": round(execution_time_seconds, 4),
         "distribucion_semanal_especialidades": distribucion,
         "agenda": agenda_detalle,
         "resumen": {
@@ -72,16 +79,18 @@ def build_result_dict(days, rooms, best_chromosome, best_fitness, best_agenda,
             "pacientes_pendientes": len(pendientes),
             "ids_pacientes_pendientes": pendientes,
         },
-        "historial_fitness": [round(f, 4) for f in ga.history],
+        "historial_fitness": [round(score, 4) for score in ga.history],
     }
 
 
 def main():
     specialties, rooms, procedures, surgeons, patients = load_all(DATA_DIR)
 
-    print(f"Datos cargados desde CSV: {len(specialties)} especialidades, "
-          f"{len(rooms)} quirofanos, {len(surgeons)} cirujanos, "
-          f"{len(procedures)} procedimientos, {len(patients)} pacientes.")
+    print(
+        f"Datos cargados desde CSV: {len(specialties)} especialidades, "
+        f"{len(rooms)} quirófanos, {len(surgeons)} cirujanos, "
+        f"{len(procedures)} procedimientos, {len(patients)} pacientes."
+    )
 
     ga = GeneticAlgorithm(
         days=DAYS,
@@ -90,41 +99,40 @@ def main():
         surgeons=surgeons,
         procedures=procedures,
         patients=patients,
-        population_size=80,
-        generations=200,
+        population_size=120,
+        generations=150,
         tournament_size=3,
-        crossover_rate=0.85,
-        mutation_rate=0.04,
+        crossover_rate=0.8,
+        mutation_rate=0.05,
         stagnation_limit=30,
         alpha=1.0,
         beta=0.3,
     )
 
+    start_time = time.time()
     best_chromosome, best_fitness, best_agenda = ga.run()
-    
-    # ============================================================
-    # VALIDACIÓN DE LA AGENDA
-    # ============================================================
+    execution_time = time.time() - start_time
 
-    validation = validate_agenda(
-        agenda=best_agenda,
-        patients=patients,
-        procedures=procedures,
-        surgeons=surgeons,
-        rooms=rooms,
+    result = build_result_dict(
+        DAYS,
+        rooms,
+        best_chromosome,
+        best_fitness,
+        best_agenda,
+        patients,
+        ga,
+        execution_time,
     )
-
-    validation.print_report()
-
-    result = build_result_dict(DAYS, rooms, best_chromosome, best_fitness,
-                                best_agenda, patients, ga)
 
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
     print(f"\nMejor fitness encontrado: {best_fitness:.2f}")
-    print(f"Pacientes programados: {result['resumen']['pacientes_programados']} "
-          f"de {result['resumen']['total_pacientes']}")
+    print(f"Tiempo de ejecucion: {execution_time:.2f}s")
+    print(
+        f"Pacientes programados: {result['resumen']['pacientes_programados']} "
+        f"de {result['resumen']['total_pacientes']}"
+    )
     print(f"Resultado exportado a: {OUTPUT_PATH}")
 
 

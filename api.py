@@ -21,6 +21,8 @@ JobStatus = Literal["planning", "completed", "failed"]
 DAY_IDS = ["lunes", "martes", "miercoles", "jueves", "viernes"]
 DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
 ROOM_TYPE_RANK = {"baja_complejidad": 1, "media_complejidad": 2, "alta_complejidad": 3}
+DAY_START_MINUTE = 540
+SLOT_BASE_MINUTE = 480
 
 
 class PendingSurgeryPayload(BaseModel):
@@ -164,25 +166,25 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
             name=item.name,
             room_type=ROOM_TYPE_RANK.get(item.or_type, 2),
             daily_capacity_minutes=capacity,
-            available_days={
-                DAY_IDS[index]
-                for index, availability in enumerate(item.availability[: len(DAY_IDS)])
-                if any(availability)
-            },
         )
         for item in payload.operating_rooms
     ]
     specialties = [
-        Specialty(str(item.id), item.name, item.min_blocks, item.max_blocks)
+        Specialty(str(item.id), item.name, item.min_blocks)
         for item in payload.specialties
         if item.id != 0
     ]
+    durations_by_procedure = {
+        str(item.procedure_id): item.estimated_duration
+        for item in payload.pending_surgeries
+    }
     procedures = [
         Procedure(
             id=str(item.id),
             name=item.name,
             specialty_id=str(item.specialty_id),
             required_room_type=ROOM_TYPE_RANK.get(item.required_room_type, 2),
+            estimated_duration=durations_by_procedure.get(str(item.id), 0),
         )
         for items in payload.procedures_by_specialty.values()
         for item in items
@@ -192,8 +194,8 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
         if item.role.lower() != "cirujano":
             continue
         specialties_ids = item.specialties_ids or ([item.main_specialty_id] if item.main_specialty_id else [])
-        availability = {
-            DAY_IDS[int(day)]: (hours[0], hours[1])
+        available_days = {
+            DAY_IDS[int(day)]
             for day, hours in item.availability_hours.items()
             if day.isdigit() and 0 <= int(day) < len(DAY_IDS) and len(hours) == 2
         }
@@ -201,8 +203,9 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
             Surgeon(
                 id=str(item.id),
                 name=item.name,
-                specialty_ids={str(value) for value in specialties_ids},
-                availability_hours=availability,
+                specialty_id=str(specialties_ids[0]) if specialties_ids else "",
+                available_days=available_days,
+                contract_hours_week=40.0,
             )
         )
 
@@ -217,7 +220,6 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
                 procedure_id=str(item.procedure_id),
                 surgeon_id=str(item.forced_surgeon_id),
                 clinical_priority=item.clinical_priority,
-                estimated_duration=item.estimated_duration,
             )
         )
 
@@ -238,11 +240,12 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
         beta=config.beta or 0.3,
     )
     chromosome, fitness, agenda = ga.run()
-    return _serialize_result(days, rooms, specialties, chromosome, fitness, agenda, patients, config.slot_size_min or 15)
+    return _serialize_result(days, rooms, specialties, surgeons, chromosome, fitness, agenda, patients, config.slot_size_min or 15)
 
 
-def _serialize_result(days, rooms, specialties, chromosome, fitness, agenda, patients, slot_size):
+def _serialize_result(days, rooms, specialties, surgeons, chromosome, fitness, agenda, patients, slot_size):
     specialty_names = {item.id: item.name for item in specialties}
+    patients_by_id = {item.id: item for item in patients}
     scheduled_ids = {item.patient_id for item in agenda.all_surgeries()}
     output_days = []
     for index, day in enumerate(days):
@@ -258,10 +261,10 @@ def _serialize_result(days, rooms, specialties, chromosome, fitness, agenda, pat
                 "cronograma": [
                     {
                         "paciente_id": int(item.patient_id),
-                        "medico": item.surgeon_name,
-                        "slot_inicio": max(0, (item.start_minute - room.day_start_minute) // slot_size),
-                        "hora_inicio": _format_minute(item.start_minute),
-                        "hora_fin": _format_minute(item.end_minute),
+                        "medico": next((surgeon.name for surgeon in surgeons if surgeon.id == patients_by_id[item.patient_id].surgeon_id), ""),
+                        "slot_inicio": max(0, (DAY_START_MINUTE + item.start_time - SLOT_BASE_MINUTE) // slot_size),
+                        "hora_inicio": _format_minute(DAY_START_MINUTE + item.start_time),
+                        "hora_fin": _format_minute(DAY_START_MINUTE + item.end_time),
                         "duracion": item.duration,
                     }
                     for item in surgeries

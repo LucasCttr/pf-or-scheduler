@@ -1,13 +1,13 @@
-"""Genetic allocation of specialties followed by the root greedy decoder."""
-
 import random
 from typing import Dict, List, Tuple
 
-from decoder import build_agenda
 from models import Agenda, Block, Patient, Procedure, Room, Specialty, Surgeon
+from decoder import build_agenda
 
 
 class GeneticAlgorithm:
+    """Algoritmo genético para asignar especialidades a bloques quirúrgicos semanales."""
+
     def __init__(
         self,
         days: List[str],
@@ -25,177 +25,217 @@ class GeneticAlgorithm:
         alpha: float = 1.0,
         beta: float = 0.3,
     ):
+        
         self.days = days
         self.rooms = rooms
         self.specialties = specialties
-        self.surgeons = {surgeon.id: surgeon for surgeon in surgeons}
-        self.procedures = {procedure.id: procedure for procedure in procedures}
+        self.surgeons: Dict[str, Surgeon] = {s.id: s for s in surgeons}
+        self.procedures: Dict[str, Procedure] = {pr.id: pr for pr in procedures}
         self.patients = patients
-        self.blocks = [Block(day, room.id) for day in days for room in rooms]
-        self.specialty_ids = [specialty.id for specialty in specialties]
-        self.min_blocks = {specialty.id: specialty.min_blocks for specialty in specialties}
-        self.max_blocks = {specialty.id: specialty.max_blocks for specialty in specialties}
-        self.rooms_by_id = {room.id: room for room in rooms}
-        self.population_size = max(2, population_size)
-        self.generations = max(1, generations)
-        self.tournament_size = max(1, min(tournament_size, self.population_size))
+
+        self.blocks: List[Block] = [Block(day, room.id) for day in days for room in rooms]
+        self.specialty_ids: List[str] = [s.id for s in specialties]
+        self.min_blocks: Dict[str, int] = {s.id: s.min_blocks for s in specialties}
+        self.rooms_by_id: Dict[str, Room] = {room.id: room for room in rooms}
+
+        self.population_size = population_size
+        self.generations = generations
+        self.tournament_size = tournament_size
         self.crossover_rate = crossover_rate
         self.mutation_rate = mutation_rate
-        self.stagnation_limit = max(1, stagnation_limit)
+        self.stagnation_limit = stagnation_limit
+
         self.alpha = alpha
         self.beta = beta
+
+        self.total_available_time = sum(room.daily_capacity_minutes for room in rooms) * len(days)
+        self.max_achievable_priority = self._compute_max_achievable_priority()
+
+        self.best_individual: Dict[Block, str] = None
+        self.best_fitness: float = float("-inf")
         self.history: List[float] = []
 
-        self._procedures_by_specialty: Dict[str, List[Procedure]] = {}
-        for procedure in procedures:
-            self._procedures_by_specialty.setdefault(procedure.specialty_id, []).append(procedure)
-        self.total_available_time = sum(
-            room.daily_capacity_minutes
-            for day in days
-            for room in rooms
-            if room.is_available(day)
-        )
-        sorted_patients = sorted(patients, key=lambda patient: (-patient.clinical_priority, patient.id))
-        self.max_achievable_priority = max(
-            1.0,
-            sum(patient.clinical_priority ** 2 for patient in sorted_patients),
-        )
+    def _compute_max_achievable_priority(self) -> float:
+        """Calcula una cota superior para normalizar la suma de prioridades al cuadrado.
 
-    def _valid_specialties(self, block: Block) -> List[str]:
-        room = self.rooms_by_id[block.room_id]
-        if not room.is_available(block.day):
-            return [""]
-        valid = [""]
-        for specialty_id in self.specialty_ids:
-            if any(
-                procedure.required_room_type <= room.room_type
-                for procedure in self._procedures_by_specialty.get(specialty_id, [])
-            ):
-                valid.append(specialty_id)
-        return valid
+        Se recorren los pacientes desde la prioridad más alta y se agregan sus
+        duraciones mientras quepan en el tiempo total disponible. El resultado
+        no pretende ser una agenda válida, sino una referencia optimista para
+        que el componente de prioridad del fitness quede aproximadamente entre
+        0 y 1. (Puede darse el caso de que sea mayor a 1)
+        """
+        sorted_patients = sorted(self.patients, key=lambda p: p.clinical_priority, reverse=True)
+        max_priority = 0.0
+        time_accumulated = 0
+
+        for patient in sorted_patients:
+            procedure = self.procedures.get(patient.procedure_id)
+            if not procedure:
+                break
+            if time_accumulated + procedure.estimated_duration <= self.total_available_time:
+                max_priority += patient.clinical_priority ** 2
+                time_accumulated += procedure.estimated_duration
+            else:
+                break
+
+        return max(1.0, max_priority)  # Evita dividir por cero si no hay pacientes.
 
     def _random_chromosome(self) -> Dict[Block, str]:
-        return {block: random.choice(self._valid_specialties(block)) for block in self.blocks}
+        """Crea una solución asignando una especialidad aleatoria a cada bloque."""
+        return {block: random.choice(self.specialty_ids) for block in self.blocks}
 
     def _initial_population(self) -> List[Dict[Block, str]]:
+        """Genera la población inicial que explorará el algoritmo."""
         return [self._random_chromosome() for _ in range(self.population_size)]
 
     def _repair(self, chromosome: Dict[Block, str]) -> Dict[Block, str]:
-        repaired = dict(chromosome)
-        for block in self.blocks:
-            valid = self._valid_specialties(block)
-            if repaired.get(block) not in valid:
-                repaired[block] = random.choice(valid)
+        """Ajusta el cromosoma para respetar los mínimos de bloques semanales.
 
+        La reparación cambia bloques de especialidades que tienen excedente,
+        evitando quitarles bloques que ya necesitan para cumplir su mínimo.
+        Así, crossover y mutación pueden trabajar libremente y la solución se
+        corrige antes de ser evaluada.
+        """
+        chromosome = dict(chromosome)
         counts = {specialty_id: 0 for specialty_id in self.specialty_ids}
-        for specialty_id in repaired.values():
-            if specialty_id in counts:
-                counts[specialty_id] += 1
-
-        # Reduce maxima first while preserving donors' minima.
-        for specialty_id in self.specialty_ids:
-            excess = counts[specialty_id] - self.max_blocks[specialty_id]
-            if excess <= 0:
-                continue
-            candidates = [block for block, value in repaired.items() if value == specialty_id]
-            random.shuffle(candidates)
-            for block in candidates:
-                if excess <= 0:
-                    break
-                replacements = [
-                    value for value in self._valid_specialties(block)
-                    if value != specialty_id
-                    and (value == "" or counts.get(value, 0) < self.max_blocks.get(value, 0))
-                ]
-                if not replacements:
-                    continue
-                replacement = min(replacements, key=lambda value: (counts.get(value, 0), value))
-                repaired[block] = replacement
-                counts[specialty_id] -= 1
-                if replacement in counts:
-                    counts[replacement] += 1
-                excess -= 1
+        for specialty_id in chromosome.values():
+            counts[specialty_id] += 1
 
         for specialty_id in self.specialty_ids:
-            needed = self.min_blocks[specialty_id] - counts[specialty_id]
-            if needed <= 0:
+            need = self.min_blocks.get(specialty_id, 0) - counts[specialty_id]
+            if need <= 0:
                 continue
-            candidates = list(self.blocks)
-            random.shuffle(candidates)
-            for block in candidates:
-                if needed <= 0:
+
+            candidate_blocks = list(chromosome.keys())
+            random.shuffle(candidate_blocks)
+
+            for block in candidate_blocks:
+                if need <= 0:
                     break
-                donor = repaired[block]
-                if specialty_id not in self._valid_specialties(block) or donor == specialty_id:
+                current_specialty = chromosome[block]
+                if current_specialty == specialty_id:
                     continue
-                if donor in counts and counts[donor] <= self.min_blocks[donor]:
-                    continue
-                repaired[block] = specialty_id
-                if donor in counts:
-                    counts[donor] -= 1
-                counts[specialty_id] += 1
-                needed -= 1
-        return repaired
+
+                if counts[current_specialty] > self.min_blocks.get(current_specialty, 0):
+                    chromosome[block] = specialty_id
+                    counts[current_specialty] -= 1
+                    counts[specialty_id] += 1
+                    need -= 1
+
+        return chromosome
 
     def _evaluate(self, chromosome: Dict[Block, str]) -> Tuple[float, Agenda]:
+        """Construye la agenda representada por un cromosoma y calcula su fitness.
+
+        El decoder aplica las restricciones de pacientes, procedimientos,
+        quirófanos y cirujanos. Después se combinan la prioridad clínica
+        atendida y la utilización del tiempo según ``alpha`` y ``beta``.
+        """
         agenda = build_agenda(chromosome, self.patients, self.procedures, self.surgeons, self.rooms_by_id)
+        surgeries = agenda.all_surgeries()
         patients_by_id = {patient.id: patient for patient in self.patients}
-        scheduled = agenda.all_surgeries()
-        priority = sum(patients_by_id[item.patient_id].clinical_priority ** 2 for item in scheduled)
-        utilization = sum(agenda.used_time.values()) / self.total_available_time if self.total_available_time else 0.0
-        return self.alpha * (priority / self.max_achievable_priority) + self.beta * utilization, agenda
 
-    def _tournament_selection(self, population, fitnesses):
+        if surgeries:
+            total_scheduled_priority_sq = sum(
+                (patients_by_id[surgery.patient_id].clinical_priority ** 2) for surgery in surgeries
+            )
+            priority_score = total_scheduled_priority_sq / self.max_achievable_priority
+        else:
+            priority_score = 0.0
+
+        used_time = sum(agenda.used_time.values())
+        utilization = (used_time / self.total_available_time) if self.total_available_time > 0 else 0.0
+        fitness = (self.alpha * priority_score) + (self.beta * utilization)
+        return fitness, agenda
+
+    def _tournament_selection(self, population: List[Dict[Block, str]], fitnesses: List[float]) -> Dict[Block, str]:
+        """Selecciona un individuo para reproducirse mediante un torneo.
+
+        Se eligen varios individuos al azar, se comparan sus valores de
+        fitness y se devuelve el que obtuvo la mejor puntuación. De esta
+        manera, las soluciones con mejor rendimiento tienen más posibilidades
+        de generar nuevos individuos.
+        """
         contenders = random.sample(range(len(population)), self.tournament_size)
-        return population[max(contenders, key=lambda index: fitnesses[index])]
+        best_idx = max(contenders, key=lambda index: fitnesses[index])
+        return population[best_idx]
 
-    def _crossover(self, parent1, parent2):
-        if len(self.blocks) < 2 or random.random() > self.crossover_rate:
+    def _crossover(self, parent1: Dict[Block, str], parent2: Dict[Block, str]) -> Tuple[Dict[Block, str], Dict[Block, str]]:
+        """Combina dos individuos usando un punto de corte sobre los bloques."""
+        if random.random() > self.crossover_rate:
             return dict(parent1), dict(parent2)
+
         cut = random.randint(1, len(self.blocks) - 1)
         child1, child2 = {}, {}
         for index, block in enumerate(self.blocks):
-            child1[block] = parent1[block] if index < cut else parent2[block]
-            child2[block] = parent2[block] if index < cut else parent1[block]
+            if index < cut:
+                child1[block] = parent1[block]
+                child2[block] = parent2[block]
+            else:
+                child1[block] = parent2[block]
+                child2[block] = parent1[block]
         return child1, child2
 
-    def _mutate(self, chromosome):
-        mutated = dict(chromosome)
+    def _mutate(self, chromosome: Dict[Block, str]) -> Dict[Block, str]:
+        """Introduce variación cambiando algunas especialidades al azar."""
+        chromosome = dict(chromosome)
         for block in self.blocks:
             if random.random() < self.mutation_rate:
-                mutated[block] = random.choice(self._valid_specialties(block))
-        return mutated
+                chromosome[block] = random.choice(self.specialty_ids)
+        return chromosome
 
     def run(self) -> Tuple[Dict[Block, str], float, Agenda]:
+        """Ejecuta la evolución y devuelve la mejor solución encontrada.
+
+        Cada generación selecciona individuos, crea descendientes mediante
+        crossover y mutación, repara sus mínimos y los evalúa con el decoder.
+        Se conserva el mejor individuo global porque una nueva generación no
+        necesariamente mejora a la anterior.
+        """
+        # La reparación inicial evita comenzar evaluando cromosomas inválidos.
         population = [self._repair(chromosome) for chromosome in self._initial_population()]
         evaluations = [self._evaluate(chromosome) for chromosome in population]
-        fitnesses = [fitness for fitness, _ in evaluations]
-        best_index = max(range(len(population)), key=lambda index: fitnesses[index])
-        best, best_fitness, best_agenda = population[best_index], fitnesses[best_index], evaluations[best_index][1]
+        fitnesses = [score for score, _ in evaluations]
+
+        best_fitness = max(fitnesses)
+        best_idx = fitnesses.index(best_fitness)
+        best_individual = population[best_idx]
+        best_agenda = evaluations[best_idx][1]
         stagnation = 0
 
-        for _ in range(self.generations):
+        for generation in range(self.generations):
             new_population = []
+
+            # Se generan descendientes hasta recuperar el tamaño de población.
             while len(new_population) < self.population_size:
                 parent1 = self._tournament_selection(population, fitnesses)
                 parent2 = self._tournament_selection(population, fitnesses)
                 child1, child2 = self._crossover(parent1, parent2)
-                new_population.append(self._repair(self._mutate(child1)))
+                child1 = self._repair(self._mutate(child1))
+                child2 = self._repair(self._mutate(child2))
+                new_population.append(child1)
                 if len(new_population) < self.population_size:
-                    new_population.append(self._repair(self._mutate(child2)))
+                    new_population.append(child2)
+
             population = new_population
             evaluations = [self._evaluate(chromosome) for chromosome in population]
-            fitnesses = [fitness for fitness, _ in evaluations]
-            generation_index = max(range(len(population)), key=lambda index: fitnesses[index])
-            generation_best = fitnesses[generation_index]
-            self.history.append(generation_best)
-            if generation_best > best_fitness + 1e-9:
-                best, best_fitness, best_agenda = (
-                    population[generation_index], generation_best, evaluations[generation_index][1]
-                )
+            fitnesses = [score for score, _ in evaluations]
+
+            gen_best_fitness = max(fitnesses)
+            gen_best_idx = fitnesses.index(gen_best_fitness)
+            self.history.append(gen_best_fitness)
+
+            # Solo se reemplaza el mejor global si la mejora es significativa.
+            if gen_best_fitness > best_fitness + 1e-6:
+                best_fitness = gen_best_fitness
+                best_individual = population[gen_best_idx]
+                best_agenda = evaluations[gen_best_idx][1]
                 stagnation = 0
             else:
                 stagnation += 1
+
             if stagnation >= self.stagnation_limit:
+                print(f"Convergencia alcanzada en la generacion {generation + 1}.")
                 break
-        return best, best_fitness, best_agenda
+
+        return best_individual, best_fitness, best_agenda
