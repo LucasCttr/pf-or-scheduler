@@ -22,6 +22,14 @@ DAY_IDS = ["lunes", "martes", "miercoles", "jueves", "viernes"]
 DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
 ROOM_TYPE_RANK = {"baja_complejidad": 1, "media_complejidad": 2, "alta_complejidad": 3}
 
+# El decoder (decoder.py) emite start_time/end_time como minutos RELATIVOS
+# al inicio de la jornada del bloque (0 = apertura del quirófano). Para
+# serializar horas de reloj absolutas hay que sumar el inicio de jornada.
+# Todos los quirófanos comparten la misma franja horaria (supuesto ya
+# implícito en el decoder), por lo que el offset es único.
+DAY_START_MINUTE = 540  # 09:00: inicio de la jornada de los quirófanos
+SLOT_BASE_MINUTE = 480  # 08:00: base de la cuadrícula de slots (slot 0 = 08:00)
+
 
 class PendingSurgeryPayload(BaseModel):
     id: int
@@ -272,14 +280,13 @@ def _serialize_result(days, rooms, specialties, surgeons, chromosome, fitness, a
                     {
                         "paciente_id": int(item.patient_id),
                         "medico": surgeon_names_by_id.get(patients_by_id[item.patient_id].surgeon_id, ""),
-                        # item.start_time / item.end_time ya vienen en minutos
-                        # absolutos de jornada (room.day_start_minute +
-                        # tiempo consumido dentro del bloque), calculados por
-                        # el decoder. No se debe volver a sumar ningún offset
-                        # de inicio de jornada aca.
-                        "slot_inicio": max(0, (item.start_time - room.day_start_minute) // slot_size),
-                        "hora_inicio": _format_minute(item.start_time),
-                        "hora_fin": _format_minute(item.end_time),
+                        # item.start_time / item.end_time son minutos
+                        # relativos al inicio de la jornada (0 = apertura),
+                        # calculados por el decoder. Aqui se suma el offset
+                        # de inicio de jornada para obtener horas de reloj.
+                        "slot_inicio": max(0, (DAY_START_MINUTE + item.start_time - SLOT_BASE_MINUTE) // slot_size),
+                        "hora_inicio": _format_minute(DAY_START_MINUTE + item.start_time),
+                        "hora_fin": _format_minute(DAY_START_MINUTE + item.end_time),
                         "duracion": item.duration,
                     }
                     for item in surgeries
