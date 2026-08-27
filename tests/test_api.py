@@ -30,7 +30,7 @@ def minimal_payload():
                 "role": "cirujano",
                 "specialties_ids": [10],
                 "enabled_procedures_ids": [100],
-                "availability_hours": {"0": [540, 720]},
+                "availability_hours": {"0": [480, 840]},
                 "main_specialty_id": 10,
             }
         ],
