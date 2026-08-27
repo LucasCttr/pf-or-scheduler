@@ -194,18 +194,29 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
         if item.role.lower() != "cirujano":
             continue
         specialties_ids = item.specialties_ids or ([item.main_specialty_id] if item.main_specialty_id else [])
-        available_days = {
-            DAY_IDS[int(day)]
+
+        valid_hours = {
+            day: hours
             for day, hours in item.availability_hours.items()
             if day.isdigit() and 0 <= int(day) < len(DAY_IDS) and len(hours) == 2
         }
+
+        available_days = {DAY_IDS[int(day)] for day in valid_hours}
+
+        # Horas contractuales semanales: suma de la franja horaria declarada
+        # por el cliente para cada día disponible, no un valor fijo.
+        contract_hours_week = sum(
+            (hours[1] - hours[0]) / 60
+            for hours in valid_hours.values()
+        )
+
         surgeons.append(
             Surgeon(
                 id=str(item.id),
                 name=item.name,
                 specialty_id=str(specialties_ids[0]) if specialties_ids else "",
                 available_days=available_days,
-                contract_hours_week=40.0,
+                contract_hours_week=contract_hours_week,
             )
         )
 
