@@ -164,6 +164,15 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
             name=item.name,
             room_type=ROOM_TYPE_RANK.get(item.or_type, 2),
             daily_capacity_minutes=capacity,
+            # availability[day] es una lista con un unico valor booleano
+            # (un solo turno por dia): indica si ese quirofano opera ese
+            # dia de la semana. Si la lista viene vacia para un dia, se
+            # asume no disponible ese dia.
+            available_days={
+                DAY_IDS[index]
+                for index, day_availability in enumerate(item.availability[:len(DAY_IDS)])
+                if day_availability and day_availability[0]
+            },
         )
         for item in payload.operating_rooms
     ]
