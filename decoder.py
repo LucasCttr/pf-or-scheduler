@@ -37,6 +37,16 @@ from models import (
 )
 
 
+def next_available_start(start, duration, bookings):
+    for booked_start, booked_end in sorted(bookings):
+        if start >= booked_end:
+            continue
+        if start + duration <= booked_start:
+            break
+        start = booked_end
+    return start
+
+
 def build_agenda(
     chromosome: Dict[Block, str],
     patients: List[Patient],
@@ -91,7 +101,7 @@ def build_agenda(
     # la jornada. Se usa para impedir que un cirujano quede agendado en
     # dos quirofanos distintos en el mismo momento del dia.
     surgeon_day_intervals: Dict[str, Dict[str, List[Tuple[int, int]]]] = {
-        s.id: {}
+        s.id: {day: list(intervals) for day, intervals in s.bookings.items()}
         for s in surgeons.values()
     }
 
@@ -143,7 +153,8 @@ def build_agenda(
             # que daily_capacity_minutes puede variar segun la sala.
             if block.day not in surgeon_days_used[surgeon.id]:
 
-                shift_hours = capacity / 60
+                start, end = surgeon.availability.get(block.day, (0, capacity))
+                shift_hours = max(0, min(capacity, end) - max(0, start)) / 60
 
                 projected_hours = (
                     surgeon_presence_hours[surgeon.id]
@@ -175,33 +186,22 @@ def build_agenda(
         # -----------------------------
         # Asignacion secuencial
         # -----------------------------
-        remaining_capacity = capacity
+        cursor = 0
+        consumed = 0
 
         for p, procedure in feasible:
-
-            duration = procedure.estimated_duration
-
-            if duration > remaining_capacity:
+            duration = p.estimated_duration if p.estimated_duration is not None else procedure.estimated_duration
+            if duration <= 0:
                 continue
 
             surgeon_id = p.surgeon_id
-
-            # Intervalo tentativo que ocuparia esta cirugia dentro del
-            # bloque actual (relativo al inicio de la jornada del dia).
-            start_time = capacity - remaining_capacity
-            end_time = start_time + duration
-
-            # Restriccion fisica: el cirujano no puede estar operando en
-            # dos quirofanos al mismo tiempo. Se verifica que este
-            # intervalo no se solape con ningun otro que el cirujano ya
-            # tenga ocupado este mismo dia, en cualquier sala (incluido
-            # este mismo bloque, por si ya se le asigno otro paciente aca).
-            ocupados_hoy = surgeon_day_intervals[surgeon_id].setdefault(block.day, [])
-            solapa = any(
-                start_time < fin_existente and inicio_existente < end_time
-                for inicio_existente, fin_existente in ocupados_hoy
+            window_start, window_end = surgeons[surgeon_id].availability.get(block.day, (0, capacity))
+            occupied = surgeon_day_intervals[surgeon_id].setdefault(block.day, [])
+            start_time = next_available_start(
+                max(cursor, window_start), duration, occupied + room.bookings.get(block.day, []),
             )
-            if solapa:
+            end_time = start_time + duration
+            if end_time > min(capacity, window_end):
                 continue
 
             assignments[block].append(
@@ -214,10 +214,11 @@ def build_agenda(
                 )
             )
 
-            remaining_capacity -= duration
+            cursor = end_time
+            consumed += duration
             p.scheduled = True
 
-            ocupados_hoy.append((start_time, end_time))
+            occupied.append((start_time, end_time))
 
             # Primera participacion del cirujano
             # en este dia -> consume la jornada.
@@ -228,12 +229,10 @@ def build_agenda(
                 )
 
                 surgeon_presence_hours[surgeon_id] += (
-                    capacity / 60
+                    max(0, min(capacity, window_end) - max(0, window_start)) / 60
                 )
 
-        used_time[block] = (
-            capacity - remaining_capacity
-        )
+        used_time[block] = consumed
 
     return Agenda(
         assignments=assignments,

@@ -5,7 +5,7 @@ Estructuras de datos del problema de programación quirúrgica.
 Estas entidades representan la demanda, la oferta y la solución intermedia
 que produce el algoritmo antes de convertirla en una agenda final.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Set
 
 
@@ -25,6 +25,8 @@ class Surgeon:
     specialty_id: str
     available_days: Set[str]
     contract_hours_week: float
+    availability: dict[str, tuple[int, int]] = field(default_factory=dict)
+    bookings: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -34,6 +36,8 @@ class Room:
     name: str
     room_type: int  # mayor valor = mayor complejidad soportada
     daily_capacity_minutes: int
+    available_days: Set[str] | None = None
+    bookings: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -55,6 +59,7 @@ class Patient:
     surgeon_id: str
     clinical_priority: float  # combinación de prioridad clínica y tiempo en espera
     scheduled: bool = False  # estado temporal usado por el decoder
+    estimated_duration: int | None = None
 
 
 @dataclass(frozen=True)

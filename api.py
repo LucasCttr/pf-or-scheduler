@@ -4,12 +4,13 @@ import json
 import os
 import random
 import time
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import Any, Literal
 from urllib import request as urllib_request
 from urllib.error import URLError
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
@@ -86,8 +87,18 @@ class SchedulerConfigPayload(BaseModel):
     slot_size_min: int | None = None
 
 
+class BookingPayload(BaseModel):
+    day: int = Field(ge=0, lt=7)
+    start: int = Field(ge=0, lt=1440)
+    end: int = Field(gt=0, le=1440)
+    room_id: int | None = None
+    surgeon_id: int | None = None
+
+
 class PlanningRequest(BaseModel):
     week_start: str
+    job_uuid: UUID | None = None
+    bookings: list[BookingPayload] = Field(default_factory=list)
     pending_surgeries: list[PendingSurgeryPayload]
     operating_rooms: list[OperatingRoomPayload]
     specialties: list[SpecialtyPayload]
@@ -100,6 +111,7 @@ class PlanningRequest(BaseModel):
 class PlanningStatusResponse(BaseModel):
     uuid: str
     status: JobStatus
+    error_message: str | None = None
 
 
 class PlanningJob(BaseModel):
@@ -115,22 +127,25 @@ _jobs_lock = Lock()
 _executor = ThreadPoolExecutor(max_workers=1)
 
 
-@app.post("/planning", response_model=PlanningStatusResponse, status_code=status.HTTP_202_ACCEPTED)
+@app.post("/planning", response_model=PlanningStatusResponse, response_model_exclude_none=True, status_code=status.HTTP_202_ACCEPTED)
 def create_planning(payload: PlanningRequest) -> PlanningStatusResponse:
-    job_uuid = str(uuid4())
+    job_uuid = str(payload.job_uuid or uuid4())
     with _jobs_lock:
+        existing = _jobs.get(job_uuid)
+        if existing:
+            return PlanningStatusResponse(uuid=job_uuid, status=existing.status)
         _jobs[job_uuid] = PlanningJob(uuid=job_uuid, status="planning")
     _executor.submit(_run_job, job_uuid, payload)
     return PlanningStatusResponse(uuid=job_uuid, status="planning")
 
 
-@app.get("/planning/{job_uuid}", response_model=PlanningStatusResponse)
+@app.get("/planning/{job_uuid}", response_model=PlanningStatusResponse, response_model_exclude_none=True)
 def get_planning_status(job_uuid: str) -> PlanningStatusResponse:
     with _jobs_lock:
         job = _jobs.get(job_uuid)
     if job is None:
         raise HTTPException(status_code=404, detail="Planning job not found")
-    return PlanningStatusResponse(uuid=job.uuid, status=job.status)
+    return PlanningStatusResponse(uuid=job.uuid, status=job.status, error_message=job.error_message)
 
 
 def _run_job(job_uuid: str, payload: PlanningRequest) -> None:
@@ -165,6 +180,17 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
     config = payload.config or SchedulerConfigPayload()
     days = DAY_IDS[: config.n_days or 5]
     capacity = config.block_duration_min or 300
+    room_bookings = defaultdict(lambda: defaultdict(list))
+    surgeon_bookings = defaultdict(lambda: defaultdict(list))
+    for booking in payload.bookings:
+        if booking.day >= len(days) or booking.end <= booking.start:
+            continue
+        day = days[booking.day]
+        interval = (booking.start - DAY_START_MINUTE, booking.end - DAY_START_MINUTE)
+        if booking.room_id is not None:
+            room_bookings[booking.room_id][day].append(interval)
+        if booking.surgeon_id is not None:
+            surgeon_bookings[booking.surgeon_id][day].append(interval)
 
     rooms = [
         Room(
@@ -172,6 +198,10 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
             name=item.name,
             room_type=ROOM_TYPE_RANK.get(item.or_type, 2),
             daily_capacity_minutes=capacity,
+            available_days={
+                day for day, available in zip(days, item.availability) if available and all(available)
+            },
+            bookings=room_bookings[item.id],
         )
         for item in payload.operating_rooms
     ]
@@ -180,17 +210,13 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
         for item in payload.specialties
         if item.id != 0
     ]
-    durations_by_procedure = {
-        str(item.procedure_id): item.estimated_duration
-        for item in payload.pending_surgeries
-    }
     procedures = [
         Procedure(
             id=str(item.id),
             name=item.name,
             specialty_id=str(item.specialty_id),
             required_room_type=ROOM_TYPE_RANK.get(item.required_room_type, 2),
-            estimated_duration=durations_by_procedure.get(str(item.id), 0),
+            estimated_duration=0,
         )
         for items in payload.procedures_by_specialty.values()
         for item in items
@@ -204,7 +230,8 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
         valid_hours = {
             day: hours
             for day, hours in item.availability_hours.items()
-            if day.isdigit() and 0 <= int(day) < len(DAY_IDS) and len(hours) == 2
+            if day.isdigit() and 0 <= int(day) < len(days) and len(hours) == 2
+            and 0 <= hours[0] < hours[1] <= 1440
         }
 
         available_days = {DAY_IDS[int(day)] for day in valid_hours}
@@ -223,6 +250,11 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
                 specialty_id=str(specialties_ids[0]) if specialties_ids else "",
                 available_days=available_days,
                 contract_hours_week=contract_hours_week,
+                availability={
+                    DAY_IDS[int(day)]: (hours[0] - DAY_START_MINUTE, hours[1] - DAY_START_MINUTE)
+                    for day, hours in valid_hours.items()
+                },
+                bookings=surgeon_bookings[item.id],
             )
         )
 
@@ -237,6 +269,7 @@ def run_planning(payload: PlanningRequest) -> dict[str, Any]:
                 procedure_id=str(item.procedure_id),
                 surgeon_id=str(item.forced_surgeon_id),
                 clinical_priority=item.clinical_priority,
+                estimated_duration=item.estimated_duration,
             )
         )
 

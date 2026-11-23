@@ -107,3 +107,35 @@ def test_run_planning_requires_assigned_surgeon():
         assert "no tiene cirujano asignado" in str(exc)
     else:
         raise AssertionError("Expected missing surgeon validation")
+
+
+def test_job_uuid_reuses_existing_dispatch(monkeypatch):
+    from uuid import uuid4
+
+    payload = minimal_payload()
+    payload["job_uuid"] = str(uuid4())
+    submitted = []
+    monkeypatch.setattr(api._executor, "submit", lambda *args: submitted.append(args))
+
+    client = TestClient(app)
+    first = client.post("/planning", json=payload)
+    second = client.post("/planning", json=payload)
+    assert first.status_code == second.status_code == 202
+    assert first.json()["uuid"] == second.json()["uuid"] == payload["job_uuid"]
+    assert len(submitted) == 1
+
+
+def test_availability_bookings_and_distinct_durations_for_same_procedure():
+    payload = minimal_payload()
+    payload["operating_rooms"][0]["availability"] = [[False], [True], [False], [False], [False]]
+    payload["medical_staff"][0]["availability_hours"] = {"0": [540, 840], "1": [600, 780]}
+    payload["pending_surgeries"].append({
+        **payload["pending_surgeries"][0], "id": 2, "estimated_duration": 35, "clinical_priority": 1,
+    })
+    payload["bookings"] = [{"day": 1, "start": 600, "end": 630, "room_id": 30}]
+    result = run_planning(PlanningRequest.model_validate(payload))
+    assert not result["dias"][0]["bloques"][0]["cronograma"]
+    items = result["dias"][1]["bloques"][0]["cronograma"]
+    assert [(item["duracion"], item["hora_inicio"], item["hora_fin"]) for item in items] == [
+        (60, "10:30", "11:30"), (35, "11:30", "12:05"),
+    ]

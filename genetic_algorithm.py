@@ -33,7 +33,10 @@ class GeneticAlgorithm:
         self.procedures: Dict[str, Procedure] = {pr.id: pr for pr in procedures}
         self.patients = patients
 
-        self.blocks: List[Block] = [Block(day, room.id) for day in days for room in rooms]
+        self.blocks: List[Block] = [
+            Block(day, room.id) for day in days for room in rooms
+            if room.available_days is None or day in room.available_days
+        ]
         self.specialty_ids: List[str] = [s.id for s in specialties]
         self.min_blocks: Dict[str, int] = {s.id: s.min_blocks for s in specialties}
         self.rooms_by_id: Dict[str, Room] = {room.id: room for room in rooms}
@@ -48,7 +51,7 @@ class GeneticAlgorithm:
         self.alpha = alpha
         self.beta = beta
 
-        self.total_available_time = sum(room.daily_capacity_minutes for room in rooms) * len(days)
+        self.total_available_time = sum(self.rooms_by_id[block.room_id].daily_capacity_minutes for block in self.blocks)
         self.max_achievable_priority = self._compute_max_achievable_priority()
 
         self.best_individual: Dict[Block, str] = None
@@ -72,9 +75,10 @@ class GeneticAlgorithm:
             procedure = self.procedures.get(patient.procedure_id)
             if not procedure:
                 break
-            if time_accumulated + procedure.estimated_duration <= self.total_available_time:
+            duration = patient.estimated_duration if patient.estimated_duration is not None else procedure.estimated_duration
+            if time_accumulated + duration <= self.total_available_time:
                 max_priority += patient.clinical_priority ** 2
-                time_accumulated += procedure.estimated_duration
+                time_accumulated += duration
             else:
                 break
 
@@ -162,7 +166,7 @@ class GeneticAlgorithm:
 
     def _crossover(self, parent1: Dict[Block, str], parent2: Dict[Block, str]) -> Tuple[Dict[Block, str], Dict[Block, str]]:
         """Combina dos individuos usando un punto de corte sobre los bloques."""
-        if random.random() > self.crossover_rate:
+        if len(self.blocks) < 2 or random.random() > self.crossover_rate:
             return dict(parent1), dict(parent2)
 
         cut = random.randint(1, len(self.blocks) - 1)
